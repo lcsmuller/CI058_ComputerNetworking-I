@@ -1,16 +1,22 @@
+CC  ?= gcc
 CXX ?= g++
 
+CFLAGS   = -Wall -Wextra -Wpedantic -I./
 CXXFLAGS = -Wall -Wextra -Wpedantic -I./
 
-TEST = test
+MAIN = game
+TEST = test_player
+
 OBJS = player.o
 
-all: $(TEST)
+all: $(MAIN)
+test: $(TEST)
 
+$(MAIN): $(OBJS)
 $(TEST): $(OBJS)
 
 clean:
-	@ rm -f $(TEST) $(OBJS)
+	@ rm -f $(MAIN) $(TEST) $(OBJS)
 
-.PHONY: all clean
+.PHONY: all test clean
 

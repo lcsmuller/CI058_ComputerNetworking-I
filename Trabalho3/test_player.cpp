@@ -5,7 +5,7 @@
 int
 main(int argc, char *argv[])
 {
-    struct player player = {};
+    struct player *player;
     unsigned position;
     char baton[1024];
 
@@ -20,16 +20,15 @@ main(int argc, char *argv[])
     }
 
     player = player_create(position - 1);
-    if (player.position == 0) { // primeiro jogador
+    if (player_get_position(player) == 0) { // primeiro jogador
       puts("Insira mensagem inicial a ser passada pelo bastão:\t");
       fgets(baton, sizeof(baton), stdin);
-      player_send_to_next(&player, baton, sizeof(baton));
-      sleep(1);
+      player_send_to_next(player, baton, sizeof(baton));
     }
 
     while (1) { // loop de jogo
       // aguarda bastão do jogador anterior
-      if (player_recv_from_prev(&player, baton, sizeof(baton)) < 0) {
+      if (player_recv_from_prev(player, baton, sizeof(baton)) < 0) {
         perror("Não foi possível receber do jogador anterior: ");
         break;
       }
@@ -40,7 +39,7 @@ main(int argc, char *argv[])
       fgets(baton, sizeof(baton), stdin);
 
       // passa bastão para o próximo jogador
-      if (player_send_to_next(&player, baton, sizeof(baton)) < 0) {
+      if (player_send_to_next(player, baton, sizeof(baton)) < 0) {
         perror("Não foi possível enviar para o próximo jogador: ");
         break;
       }
