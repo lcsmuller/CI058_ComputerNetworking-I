@@ -1,7 +1,9 @@
 # Ignore all
 *
 # But these
+!src
+!include
 !.gitignore
 !Makefile
-!*.c
-!*.h
+!**/*.c
+!**/*.h

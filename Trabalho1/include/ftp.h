@@ -123,7 +123,12 @@ unsigned ftp_message_update(struct ftp_message *msg,
                             const char data[],
                             unsigned size);
 
-void ftp_command_dispatch(struct ftp_message *msg);
+/**
+ * @brief Decodifica e executa instruções contidas na mensagem FTP
+ *
+ * @param msg mensagem a ser decodificada e executada
+ */
+void ftp_message_unpack(struct ftp_message *msg);
 
 /**
  * @brief Inicializa servidor

@@ -7,34 +7,42 @@
 
 #define BUFFER_LEN 1024
 
-struct command {
-    char *args;
-    unsigned argslen;
+struct command_args {
     enum ftp_message_types type;
+    char *contents;
+    unsigned len;
 };
 
-void
-command_init(struct command *cmd, char buf[BUFFER_LEN])
+struct command_args
+command_args_fetch(FILE *stream)
 {
-    const unsigned cmdlen = strcspn(buf, " ");
+    char buf[BUFFER_LEN];
+    struct command_args args;
+    unsigned len;
 
-    cmd->args = buf + cmdlen + 1;
-    cmd->argslen = strcspn(cmd->args, "\n");
+    memset(buf, 0, sizeof(buf));
+    fgets(buf, sizeof(buf), stream);
 
-    switch (cmdlen) {
+    len = strcspn(buf, " ");
+    args.contents = buf + len + 1;
+    args.len = strcspn(args.contents, "\n");
+
+    switch (len) {
     case 2:
-        if (0 == strncmp(buf, "ls", cmdlen))
-            cmd->type = FTP_TYPES_LS;
-        else if (0 == strncmp(buf, "cd", cmdlen))
-            cmd->type = FTP_TYPES_CD;
+        if (0 == strncmp(buf, "ls", len))
+            args.type = FTP_TYPES_LS;
+        else if (0 == strncmp(buf, "cd", len))
+            args.type = FTP_TYPES_CD;
         break;
     case 5:
-        if (0 == strncmp(buf, "mkdir", cmdlen)) cmd->type = FTP_TYPES_MKDIR;
+        if (0 == strncmp(buf, "mkdir", len)) args.type = FTP_TYPES_MKDIR;
         break;
     default:
-        cmd->type = FTP_TYPES_ERROR;
+        args.type = FTP_TYPES_ERROR;
         break;
     }
+
+    return args;
 }
 
 int
@@ -42,19 +50,14 @@ main(void)
 {
     struct ftp_client *client = ftp_client_init();
     struct ftp_message msg;
-    char buf[BUFFER_LEN];
-    struct command cmd;
 
     if (!client) exit(EXIT_FAILURE);
 
     while (puts("Insira comando:\t"), 1) { // loop do cliente
+        struct command_args args = command_args_fetch(stdin);
+
         ftp_message_init(&msg);
-
-        memset(buf, 0, sizeof(buf));
-        fgets(buf, sizeof(buf), stdin);
-        command_init(&cmd, buf);
-
-        ftp_message_update(&msg, cmd.type, cmd.args, cmd.argslen);
+        ftp_message_update(&msg, args.type, args.contents, args.len);
 
         puts("Sending to server:");
         ftp_message_print(&msg, stdout);

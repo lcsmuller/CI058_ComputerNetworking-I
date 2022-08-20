@@ -1,24 +1,26 @@
 CC = gcc
 
-MAIN  = main
-TESTS = server client
+SRC_DIR     = src
+INCLUDE_DIR = include
 
-OBJS = ftp_message.o ftp_command.o ftp_server.o ftp_client.o
+EXES = server client
 
-CFLAGS = -Wall -Wextra -Werror -Wpedantic -I.
+OBJS = $(SRC_DIR)/ftp_message.o \
+       $(SRC_DIR)/ftp_server.o  \
+       $(SRC_DIR)/ftp_client.o
+
+CFLAGS = -Wall -Wextra -Werror -Wpedantic -I$(INCLUDE_DIR)
 
 SERVER_PORT = 5010
 
-all:  $(MAIN)
-test:  $(TESTS)
+all:  $(EXES)
 
-test_port:
+test:
 	@ echo "Hello World!" | nc 127.0.0.1 $(SERVER_PORT)
 
-$(MAIN): $(OBJS)
-$(TESTS): $(OBJS)
+$(EXES): $(OBJS)
 
 clean: 
-	@ rm -f $(MAIN) $(TESTS) $(OBJS)
+	@ rm -f $(EXES) $(OBJS)
 
-.PHONY: all test test_port
+.PHONY: all test
