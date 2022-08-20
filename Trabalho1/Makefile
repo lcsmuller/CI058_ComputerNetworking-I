@@ -1,9 +1,9 @@
 CC = gcc
 
 MAIN  = main
-TESTS = server
+TESTS = server client
 
-OBJS = ftp_message.o ftp_command.o
+OBJS = ftp_message.o ftp_command.o ftp_server.o ftp_client.o
 
 CFLAGS = -Wall -Wextra -Werror -Wpedantic -I.
 

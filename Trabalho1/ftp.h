@@ -3,8 +3,11 @@
 
 /** marcador de ínicio do cabeçalho (01111110 em binário) */
 #define FTP_HEADER_START 0x7E
-/** tamanho máximo do dado enviado */
-#define FTP_DATA_MAX 64
+
+#ifndef FTP_SERVER_PORT
+/** porta padrão do servidor */
+#define FTP_SERVER_PORT 5010
+#endif
 
 /**
  * possíveis tipos de mensagens a serem enviados
@@ -25,30 +28,76 @@ enum ftp_message_types {
     FTP_TYPES_DATA = 0x20,
 };
 
-/**
- * @brief Estrutura para mensagem a ser enviada entre cliente e servidor
- * @note atributo `__packed__` é uma extensão que garante que não haja
- *      "lacunas" de bytes entre os campos
- */
-struct __attribute__((__packed__)) ftp_message {
-    /** marcador de início (assume o valor de @ref FTP_HEADER_START) */
-    unsigned header : 8;
-    /** quantidade de bytes do campo data */
-    unsigned size : 6;
-    /** contador sem sinal de 4 bits */
-    unsigned sequence : 4;
-    /** comando a ser enviado */
-    enum ftp_message_types type : 6;
-    /** data (último byte reservado para paridade) */
-    char data[FTP_DATA_MAX + 1];
+/** tamanho máximo do campo header em bits */
+#define FTP_MESSAGE_HEADER_BMAX 8
+/** tamanho máximo do campo tamanho em bits */
+#define FTP_MESSAGE_SIZE_BMAX 6
+/** tamanho máximo do campo contador em bits */
+#define FTP_MESSAGE_SEQ_BMAX 4
+/** tamanho máximo do campo tipo em bits */
+#define FTP_MESSAGE_TYPE_BMAX 6
+/** tamanho máximo do campo dados em bits */
+#define FTP_MESSAGE_DATA_BMAX (64 * 8)
+/** tamanho máximo do campo paridade em bits */
+#define FTP_MESSAGE_PARITY_BMAX 8
+
+/** tamanho máximo da mensagem em bytes */
+#define FTP_MESSAGE_MAX                                                       \
+    ((FTP_MESSAGE_HEADER_BMAX + FTP_MESSAGE_SIZE_BMAX + FTP_MESSAGE_SEQ_BMAX  \
+      + FTP_MESSAGE_TYPE_BMAX + FTP_MESSAGE_DATA_BMAX                         \
+      + FTP_MESSAGE_PARITY_BMAX)                                              \
+     / 8)
+
+/** @brief Estrutura para mensagem a ser enviada entre cliente e servidor */
+struct ftp_message {
+    /**
+     * - [0]:
+     *      - bits 0 ~ 7: marcador de início
+     *          (assume o valor de @ref FTP_HEADER_START)
+     * - [1]:
+     *      - bits 8 ~ 13: tamanho do campo data (n)
+     *      - bits 14 ~ 17: contador sem sinal (sequencia da mensagem)
+     * - [2]:
+     *      - bits 14 ~ 17: contador sem sinal (sequencia da mensagem)
+     *      - bits 18 ~ 23: tipo do comando a ser enviado / recebido
+     * - [3 ~ (n - 1)]: (n pode estar entre 3 e 67, vide campo tamanho)
+     *      - bits 24 ~ (n * 8) - 1: data
+     * - [n]:
+     *      - bits (n * 8) ~ (n * 8) + 7: byte de paridade
+     */
+    unsigned char payload[FTP_MESSAGE_MAX];
 };
 
 /**
  * @brief Inicializa @ref ftp_message
  *
- * @return retorna os campos inicializados
+ * @param msg mensagem pré-alocada a ser inicializada
  */
-struct ftp_message ftp_message_init(void);
+void ftp_message_init(struct ftp_message *msg);
+
+/**
+ * @brief Obtêm tamanho do campo `data` da mensagem
+ *
+ * @param msg mensagem ftp
+ * @return tamanho do campo `data` em bytes
+ */
+unsigned ftp_message_get_data_size(const struct ftp_message *msg);
+
+/**
+ * @brief Obtêm o campo `tipo` da mensagem
+ *
+ * @param msg mensagem ftp
+ * @return o tipo da mensagem
+ */
+enum ftp_message_types ftp_message_get_type(const struct ftp_message *msg);
+
+/**
+ * @brief Obtêm o campo `data` da mensagem
+ *
+ * @param msg mensagem ftp
+ * @return os dados da mensagem
+ */
+unsigned char *ftp_message_get_data(const struct ftp_message *msg);
 
 /**
  * @brief Imprime conteúdo de @ref ftp_message na tela
@@ -72,17 +121,63 @@ size_t ftp_message_print(const struct ftp_message *msg, FILE *out);
 void ftp_message_update(struct ftp_message *msg,
                         enum ftp_message_types type,
                         const char data[],
-                        size_t size);
-
-struct ftp_server {
-    struct sockaddr_in6 *addr;
-    int sockfd;
-    int timeout_ms;
-    struct pollfd *fds;
-    int nfds;
-    char buf[1024];
-};
+                        unsigned size);
 
 void ftp_command_dispatch(struct ftp_message *msg);
+
+/**
+ * @brief Inicializa servidor
+ *
+ * @return estrutura opaca para servidor
+ */
+struct ftp_server *ftp_server_init(void);
+
+/**
+ * @brief Libera recursos alocados ao servidor
+ *
+ * @param server servidor a ser liberado
+ */
+void ftp_server_cleanup(struct ftp_server *server);
+
+/**
+ * @brief Obtêm endereço IPV6 do servidor
+ *
+ * @param endereço em que o servidor reside
+ */
+struct sockaddr_in6 ftp_server_get_addr(void);
+
+/**
+ * @brief Inicializa cliente
+ *
+ * @return estrutura opaca para cliente
+ */
+struct ftp_client *ftp_client_init(void);
+
+/**
+ * @brief Libera recursos alocados ao cliente
+ *
+ * @param server cliente a ser liberado
+ */
+void ftp_client_cleanup(struct ftp_client *client);
+
+/**
+ * @brief Envia mensagem FTP ao servidor
+ * @note Wrapper básico de sendto()
+ *
+ * @param client cliente inicializado por ftp_client_init()
+ * @param msg mensagem FTP a ser enviada
+ * @return valor de retorno de sendto()
+ */
+int ftp_client_send(struct ftp_client *client, struct ftp_message *msg);
+
+/**
+ * @brief Envia mensagem FTP ao servidor
+ * @note Wrapper básico de recvfrom()
+ *
+ * @param client cliente inicializado por ftp_client_init()
+ * @param msg mensagem FTP recebida do servidor
+ * @return valor de retorno de recvfrom()
+ */
+int ftp_client_recv(struct ftp_client *client, struct ftp_message *msg);
 
 #endif /* FTP_H */
