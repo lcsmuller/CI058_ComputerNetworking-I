@@ -21,8 +21,8 @@ ftp_message_get_data_size(const struct ftp_message *msg)
 static void
 _ftp_message_set_data_size(struct ftp_message *msg, unsigned size)
 {
-    msg->payload[1] = (msg->payload[2] << 4) >> 4;
-    msg->payload[1] |= size;
+    msg->payload[1] = (msg->payload[1] << 4) >> 4;
+    msg->payload[1] = (msg->payload[1] << 4) | (size << 4);
 }
 
 enum ftp_message_types
@@ -42,6 +42,14 @@ unsigned char *
 ftp_message_get_data(const struct ftp_message *msg)
 {
     return (unsigned char *)(msg->payload + 3);
+}
+
+static void
+_ftp_message_set_data(struct ftp_message *msg,
+                      const char data[],
+                      unsigned size)
+{
+    memcpy(ftp_message_get_data(msg), data, size);
 }
 
 /**
@@ -100,23 +108,27 @@ ftp_message_print(const struct ftp_message *msg, FILE *out)
     const unsigned size = ftp_message_get_data_size(msg);
     char desc[1024] = "";
 
-    snprintf(desc, sizeof(desc), "%.*s", size, ftp_message_get_data(msg));
+    snprintf(desc, sizeof(desc), "%u %.*s", size, size,
+             ftp_message_get_data(msg));
 
     _hexdump(desc, msg, sizeof *msg, 16, out);
     return size;
 }
 
-void
+unsigned
 ftp_message_update(struct ftp_message *msg,
                    enum ftp_message_types type,
                    const char data[],
                    unsigned size)
 {
+    /** TODO: notificar se dado foi quebrado */
     if (size > (FTP_MESSAGE_DATA_BMAX / 8)) size = FTP_MESSAGE_DATA_BMAX / 8;
+
     _ftp_message_set_data_size(msg, size);
     _ftp_message_set_type(msg, type);
+    _ftp_message_set_data(msg, data, size);
 #if 0
     msg->sequence += 1;
 #endif
-    memcpy(ftp_message_get_data(msg), data, size);
+    return size;
 }

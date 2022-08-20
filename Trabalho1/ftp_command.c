@@ -28,15 +28,10 @@ ftp_command_dispatch(struct ftp_message *msg)
     case FTP_TYPES_LS:
         aux = "ls";
         break;
-    case FTP_TYPES_DATA:
-        aux = "hexdump";
-        break;
     default:
         break;
     }
 
-    /** @todo transformar em um função que envia em 'chunks' de
-     *      @ref FTP_DATA_MAX bytes ao cliente */
     snprintf(cmd, sizeof(cmd), "%s %.*s", aux, size,
              ftp_message_get_data(msg));
     fp = popen(cmd, "r");

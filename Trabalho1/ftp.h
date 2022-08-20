@@ -118,10 +118,10 @@ size_t ftp_message_print(const struct ftp_message *msg, FILE *out);
  * @param size tamanho de `data` em bytes
  * @return quantidade de bytes escritos
  */
-void ftp_message_update(struct ftp_message *msg,
-                        enum ftp_message_types type,
-                        const char data[],
-                        unsigned size);
+unsigned ftp_message_update(struct ftp_message *msg,
+                            enum ftp_message_types type,
+                            const char data[],
+                            unsigned size);
 
 void ftp_command_dispatch(struct ftp_message *msg);
 

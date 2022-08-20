@@ -106,6 +106,8 @@ main(void)
                     puts("Received from client:");
                     ftp_message_print(&msg, stdout);
                     putchar('\n');
+
+                    ftp_command_dispatch(&msg);
 #if 0
                     /** echo de volta ao cliente TODO: manda resposta do
                      *      comando decodificado */
