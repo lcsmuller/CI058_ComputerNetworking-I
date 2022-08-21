@@ -68,6 +68,12 @@ main(void)
             perror("Não foi possível enviar pacote");
             break;
         }
+
+        puts("Receiving from server:");
+        while (ftp_client_recv(client, &msg) > 0) {
+            ftp_message_print(&msg, stdout);
+            putchar('\n');
+        }
     }
 
     ftp_client_cleanup(client);

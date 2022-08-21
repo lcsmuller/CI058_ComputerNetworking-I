@@ -105,9 +105,9 @@ unsigned char *ftp_message_get_data(const struct ftp_message *msg);
  *
  * @param msg mensagem a ter seu conteúdo impresso
  * @param out saída a receber conteúdo
- * @return quantidade de bytes escritos
+ * @return quantidade de bytes escritos na descrição
  */
-size_t ftp_message_print(const struct ftp_message *msg, FILE *out);
+int ftp_message_print(const struct ftp_message *msg, FILE *out);
 
 /**
  * @brief Atualiza conteúdo de @ref ftp_message
@@ -116,19 +116,21 @@ size_t ftp_message_print(const struct ftp_message *msg, FILE *out);
  * @param type comando shell que os argumentos em `data` correspondem
  * @param data argumentos do comando shell
  * @param size tamanho de `data` em bytes
- * @return quantidade de bytes escritos
+ * @return `true` se houve truncamento de `data`
  */
-unsigned ftp_message_update(struct ftp_message *msg,
-                            enum ftp_message_types type,
-                            const char data[],
-                            unsigned size);
+_Bool ftp_message_update(struct ftp_message *msg,
+                         enum ftp_message_types type,
+                         const char data[],
+                         unsigned size);
 
 /**
  * @brief Decodifica e executa instruções contidas na mensagem FTP
+ * @note will return `NULL` in case there's no output to be read
  *
  * @param msg mensagem a ser decodificada e executada
+ * @return an opaque `FILE*` pointer, should be free'd with `pclose()`
  */
-void ftp_message_unpack(struct ftp_message *msg);
+FILE *ftp_message_unpack(struct ftp_message *msg);
 
 /**
  * @brief Inicializa servidor

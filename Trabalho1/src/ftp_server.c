@@ -78,7 +78,7 @@ ftp_server_init(void)
         ftp_server_cleanup(server);
         return NULL;
     }
-    /** inicializa a estrutura pollfd XXX: talvez seja possível diminuir */
+    /** inicializa a estrutura pollfd */
     server->fds = calloc(SERVER_MAX_FDS, sizeof(struct pollfd));
     if (!server->fds) {
         perror("calloc() ");

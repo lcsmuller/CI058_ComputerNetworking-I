@@ -81,6 +81,7 @@ main(void)
                 /** XXX: loop permite receber mensagem em 'chunks' */
                 while (1) {
                     struct ftp_message msg;
+                    FILE *pipe_out;
 
                     ftp_message_init(&msg);
 
@@ -107,17 +108,34 @@ main(void)
                     ftp_message_print(&msg, stdout);
                     putchar('\n');
 
-                    ftp_message_unpack(&msg);
-#if 0
-                    /** echo de volta ao cliente TODO: manda resposta do
-                     *      comando decodificado */
-                    if (send(server->fds[i].fd, buf, retval, 0) < 0) {
-                        perror("send() ");
-                        _ftp_fd_close(&server->fds[i]);
-                        should_compress_array = true;
-                        break;
+                    if ((pipe_out = ftp_message_unpack(&msg))) {
+                        char buf[(FTP_MESSAGE_DATA_BMAX / 8) - 1];
+                        size_t len;
+
+                        while (1) {
+                            memset(buf, 0, sizeof(buf));
+                            if (!(len = fread(buf, sizeof(char), sizeof(buf),
+                                              pipe_out)))
+                                break;
+
+                            ftp_message_init(&msg);
+                            ftp_message_update(&msg, FTP_TYPES_DATA, buf, len);
+
+                            puts("Sending to client:");
+                            ftp_message_print(&msg, stdout);
+                            putchar('\n');
+
+                            if (send(server->fds[i].fd, &msg, sizeof(msg), 0)
+                                < 0) {
+                                perror("send() ");
+                                _ftp_fd_close(&server->fds[i]);
+                                should_compress_array = true;
+                                break; /** FIXME: should break from previous
+                                          loop */
+                            }
+                        }
+                        pclose(pipe_out);
                     }
-#endif
                 }
             }
         }

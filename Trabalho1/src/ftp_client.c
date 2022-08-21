@@ -15,14 +15,15 @@
 struct ftp_client {
     /** socket que o cliente reside */
     int sockfd;
-    /** endereço em que o servidor que o cliente está conectado reside */
-    struct sockaddr_in6 server_addr;
 };
 
 struct ftp_client *
 ftp_client_init(void)
 {
     static const int ON = 1;
+    static const struct timeval tv = {
+        .tv_usec = 250000, // 250 ms
+    };
     struct ftp_client *client = calloc(1, sizeof *client);
 
     // cria file descriptor socket
@@ -39,12 +40,15 @@ ftp_client_init(void)
         ftp_client_cleanup(client);
         return NULL;
     }
+    // configura timeout para recebimento de pacotes
+    if (setsockopt(client->sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) {
+        perror("setsockopt() ");
+        ftp_client_cleanup(client);
+        return NULL;
+    }
     // realiza conexão ao servidor
-    client->server_addr = ftp_server_get_addr();
-    if (connect(client->sockfd, (struct sockaddr *)&client->server_addr,
-                sizeof(client->server_addr))
-        < 0)
-    {
+    struct sockaddr_in6 addr = ftp_server_get_addr();
+    if (connect(client->sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("connect() ");
         ftp_client_cleanup(client);
         return NULL;
@@ -63,15 +67,11 @@ ftp_client_cleanup(struct ftp_client *client)
 int
 ftp_client_send(struct ftp_client *client, struct ftp_message *msg)
 {
-    return sendto(client->sockfd, msg, sizeof *msg, MSG_NOSIGNAL,
-                  (struct sockaddr *)&client->server_addr,
-                  sizeof(client->server_addr));
+    return send(client->sockfd, msg, sizeof *msg, MSG_NOSIGNAL);
 }
 
 int
 ftp_client_recv(struct ftp_client *client, struct ftp_message *msg)
 {
-    socklen_t size = sizeof(client->server_addr);
-    return recvfrom(client->sockfd, msg, sizeof *msg, MSG_NOSIGNAL,
-                    (struct sockaddr *)&client->server_addr, &size);
+    return recv(client->sockfd, msg, sizeof *msg, MSG_NOSIGNAL);
 }

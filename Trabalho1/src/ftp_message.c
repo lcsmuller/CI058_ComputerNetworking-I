@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -17,27 +18,38 @@ ftp_message_init(struct ftp_message *msg)
 unsigned
 ftp_message_get_data_size(const struct ftp_message *msg)
 {
-    return msg->payload[1] >> 4;
+    return msg->payload[1] >> (8 - FTP_MESSAGE_SIZE_BMAX);
 }
 
 static void
-_ftp_message_set_data_size(struct ftp_message *msg, unsigned size)
+_ftp_message_set_data_size(struct ftp_message *msg,
+                           unsigned size,
+                           bool *is_truncated)
 {
-    msg->payload[1] = (msg->payload[1] << 4) >> 4;
-    msg->payload[1] = (msg->payload[1] << 4) | (size << 4);
+    if (size <= (FTP_MESSAGE_DATA_BMAX / 8) - 1)
+        *is_truncated = false;
+    else {
+        size = (FTP_MESSAGE_DATA_BMAX / 8) - 1;
+        *is_truncated = true;
+    }
+    msg->payload[1] =
+        (msg->payload[1] << FTP_MESSAGE_SIZE_BMAX) >> FTP_MESSAGE_SIZE_BMAX;
+    msg->payload[1] |= (unsigned char)(size << (8 - FTP_MESSAGE_SIZE_BMAX));
 }
 
 enum ftp_message_types
 ftp_message_get_type(const struct ftp_message *msg)
 {
-    return (msg->payload[2] << 4) >> 4;
+    return (msg->payload[2] << (8 - FTP_MESSAGE_TYPE_BMAX))
+           >> (8 - FTP_MESSAGE_TYPE_BMAX);
 }
 
 static void
 _ftp_message_set_type(struct ftp_message *msg, enum ftp_message_types type)
 {
-    msg->payload[2] = (msg->payload[2] >> 4) << 4;
-    msg->payload[2] |= type;
+    msg->payload[2] = (msg->payload[2] >> FTP_MESSAGE_TYPE_BMAX)
+                      << FTP_MESSAGE_TYPE_BMAX;
+    msg->payload[2] |= (unsigned char)type;
 }
 
 unsigned char *
@@ -47,11 +59,9 @@ ftp_message_get_data(const struct ftp_message *msg)
 }
 
 static void
-_ftp_message_set_data(struct ftp_message *msg,
-                      const char data[],
-                      unsigned size)
+_ftp_message_set_data(struct ftp_message *msg, const char data[])
 {
-    memcpy(ftp_message_get_data(msg), data, size);
+    memcpy(msg->payload + 3, data, FTP_MESSAGE_DATA_BMAX / 8);
 }
 
 /**
@@ -104,67 +114,61 @@ _hexdump(const char desc[],
     fprintf(stream, "  %s\n", buf);
 }
 
-size_t
+int
 ftp_message_print(const struct ftp_message *msg, FILE *out)
 {
-    const unsigned size = ftp_message_get_data_size(msg);
     char desc[1024] = "";
-
-    snprintf(desc, sizeof(desc), "%u %.*s", size, size,
-             ftp_message_get_data(msg));
-
+    int ret =
+        snprintf(desc, sizeof(desc), "%.*s", ftp_message_get_data_size(msg),
+                 ftp_message_get_data(msg));
     _hexdump(desc, msg, sizeof *msg, 16, out);
-    return size;
+    return ret;
 }
 
-unsigned
+bool
 ftp_message_update(struct ftp_message *msg,
                    enum ftp_message_types type,
                    const char data[],
                    unsigned size)
 {
-    /** TODO: notificar se dado foi quebrado */
-    if (size > (FTP_MESSAGE_DATA_BMAX / 8)) size = FTP_MESSAGE_DATA_BMAX / 8;
+    bool is_truncated;
 
-    _ftp_message_set_data_size(msg, size);
+    _ftp_message_set_data_size(msg, size, &is_truncated);
     _ftp_message_set_type(msg, type);
-    _ftp_message_set_data(msg, data, size);
+    _ftp_message_set_data(msg, data);
 #if 0
     msg->sequence += 1;
 #endif
-    return size;
+    return is_truncated;
 }
 
-/** @todo comandos devem ser executados em outro processo
- *      (para evitar espera infinita) */
-void
+FILE *
 ftp_message_unpack(struct ftp_message *msg)
 {
     const enum ftp_message_types type = ftp_message_get_type(msg);
-    const unsigned size = ftp_message_get_data_size(msg);
+    unsigned size = ftp_message_get_data_size(msg);
+    const char *name = NULL;
     char cmd[1024] = { 0 };
-    const char *aux = "";
-    FILE *fp;
 
     switch (type) {
+    case FTP_TYPES_MKDIR:
+        name = "mkdir";
+        break;
+    case FTP_TYPES_LS:
+        name = "ls";
+        break;
     case FTP_TYPES_CD: /**< @todo print getcwd() output */
         memcpy(cmd, ftp_message_get_data(msg), size);
         chdir(cmd);
-        return;
-    case FTP_TYPES_MKDIR:
-        aux = "mkdir";
-        break;
-    case FTP_TYPES_LS:
-        aux = "ls";
+        name = "pwd";
+        size = 0;
         break;
     default:
-        break;
+        return NULL;
     }
 
-    snprintf(cmd, sizeof(cmd), "%s %.*s", aux, size,
+    snprintf(cmd, sizeof(cmd), "%s %.*s", name, size,
              ftp_message_get_data(msg));
-    fp = popen(cmd, "r");
-    for (int c; (c = fgetc(fp)) != EOF;)
-        putchar(c);
-    pclose(fp);
+
+    return popen(cmd, "r");
 }
