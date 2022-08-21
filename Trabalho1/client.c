@@ -53,15 +53,14 @@ main(void)
 
     if (!client) exit(EXIT_FAILURE);
 
-    while (puts("Insira comando:\t"), 1) { // loop do cliente
+    while (printf("Insira comando:\t"), 1) { // loop do cliente
         struct command_args args = command_args_fetch(stdin);
 
         ftp_message_init(&msg);
         ftp_message_update(&msg, args.type, args.contents, args.len);
 
-        puts("Sending to server:");
+        printf("SEND:\t");
         ftp_message_print(&msg, stdout);
-        putchar('\n');
 
         // envia mensagem ao servidor
         if (ftp_client_send(client, &msg) < 0) {
@@ -69,10 +68,9 @@ main(void)
             break;
         }
 
-        puts("Receiving from server:");
         while (ftp_client_recv(client, &msg) > 0) {
+            printf("RECV:\t");
             ftp_message_print(&msg, stdout);
-            putchar('\n');
         }
     }
 

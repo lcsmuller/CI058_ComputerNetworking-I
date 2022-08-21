@@ -78,11 +78,10 @@ main(void)
                 }
             }
             else { /* mensagem recebida de algum cliente existente */
-                /** XXX: loop permite receber mensagem em 'chunks' */
-                while (1) {
-                    struct ftp_message msg;
-                    FILE *pipe_out;
+                struct ftp_message msg;
+                struct ftp_file *file;
 
+                while (1) {
                     ftp_message_init(&msg);
 
                     /* recebe payload do cliente */
@@ -103,38 +102,34 @@ main(void)
                         break;
                     }
 
-                    /** TODO: decodificar mensagem do usuário e exec comando */
-                    puts("Received from client:");
+                    printf("RECV:\t");
                     ftp_message_print(&msg, stdout);
-                    putchar('\n');
 
-                    if ((pipe_out = ftp_message_unpack(&msg))) {
+                    if ((file = ftp_message_unpack(&msg))) {
                         char buf[(FTP_MESSAGE_DATA_BMAX / 8) - 1];
                         size_t len;
 
                         while (1) {
-                            memset(buf, 0, sizeof(buf));
-                            if (!(len = fread(buf, sizeof(char), sizeof(buf),
-                                              pipe_out)))
-                                break;
+                            len = fread(buf, sizeof(char), sizeof(buf),
+                                        file->stream);
+                            if (!len) break;
 
                             ftp_message_init(&msg);
                             ftp_message_update(&msg, FTP_TYPES_DATA, buf, len);
 
-                            puts("Sending to client:");
+                            printf("SEND:\t");
                             ftp_message_print(&msg, stdout);
-                            putchar('\n');
 
                             if (send(server->fds[i].fd, &msg, sizeof(msg), 0)
                                 < 0) {
                                 perror("send() ");
                                 _ftp_fd_close(&server->fds[i]);
                                 should_compress_array = true;
-                                break; /** FIXME: should break from previous
-                                          loop */
+                                /** FIXME: should break from previous loop */
+                                break;
                             }
                         }
-                        pclose(pipe_out);
+                        ftp_file_close(file);
                     }
                 }
             }

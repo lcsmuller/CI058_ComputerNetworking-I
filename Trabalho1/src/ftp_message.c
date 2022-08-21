@@ -64,6 +64,7 @@ _ftp_message_set_data(struct ftp_message *msg, const char data[])
     memcpy(msg->payload + 3, data, FTP_MESSAGE_DATA_BMAX / 8);
 }
 
+#ifdef FTP_DEBUG
 /**
  * @brief Dump hexadecimal representation of data
  *
@@ -85,7 +86,7 @@ _hexdump(const char desc[],
     const unsigned char *pc = addr;
     size_t i;
 
-    if (desc) printf("%s:\n", desc);
+    if (desc) printf("%s", desc);
 
     if (len == 0) {
         fputs("_hexdump(): zero length\n", stderr);
@@ -113,15 +114,52 @@ _hexdump(const char desc[],
     // and print the final ASCII buffer
     fprintf(stream, "  %s\n", buf);
 }
+#endif
+
+static const char *
+_ftp_get_type_name(const struct ftp_message *msg)
+{
+    switch (ftp_message_get_type(msg)) {
+    case FTP_TYPES_ACK:
+        return "ACK\n";
+    case FTP_TYPES_CD:
+        return "cd ";
+    case FTP_TYPES_DATA:
+        return "DATA\n";
+    case FTP_TYPES_END:
+        return "END\n";
+    case FTP_TYPES_ERROR:
+        return "ERROR\n";
+    case FTP_TYPES_FDESC:
+        return "FDESC\n";
+    case FTP_TYPES_GET:
+        return "GET\n";
+    case FTP_TYPES_LS:
+        return "ls ";
+    case FTP_TYPES_MKDIR:
+        return "mkdir ";
+    case FTP_TYPES_NACK:
+        return "NACK\n";
+    case FTP_TYPES_OK:
+        return "OK\n";
+    case FTP_TYPES_PUT:
+        return "PUT\n";
+    }
+    return "UNKNOWN\n";
+}
 
 int
 ftp_message_print(const struct ftp_message *msg, FILE *out)
 {
     char desc[1024] = "";
     int ret =
-        snprintf(desc, sizeof(desc), "%.*s", ftp_message_get_data_size(msg),
-                 ftp_message_get_data(msg));
+        snprintf(desc, sizeof(desc), "%s%.*s\n", _ftp_get_type_name(msg),
+                 ftp_message_get_data_size(msg), ftp_message_get_data(msg));
+#ifdef FTP_DEBUG
     _hexdump(desc, msg, sizeof *msg, 16, out);
+#else
+    fputs(desc, out);
+#endif
     return ret;
 }
 
@@ -142,13 +180,22 @@ ftp_message_update(struct ftp_message *msg,
     return is_truncated;
 }
 
-FILE *
+/** @brief Aligns to @ref ftp_file and maintains a private is_pipe field */
+struct _ftp_file_wrapped {
+    /** pointer to stream */
+    FILE *stream;
+    /** whether stream is a pipe */
+    bool is_pipe;
+};
+
+struct ftp_file *
 ftp_message_unpack(struct ftp_message *msg)
 {
     const enum ftp_message_types type = ftp_message_get_type(msg);
     unsigned size = ftp_message_get_data_size(msg);
     const char *name = NULL;
     char cmd[1024] = { 0 };
+    bool should_pipe = true;
 
     switch (type) {
     case FTP_TYPES_MKDIR:
@@ -167,8 +214,24 @@ ftp_message_unpack(struct ftp_message *msg)
         return NULL;
     }
 
+    struct _ftp_file_wrapped *file = malloc(sizeof *file);
+    if (!file) return NULL;
+
     snprintf(cmd, sizeof(cmd), "%s %.*s", name, size,
              ftp_message_get_data(msg));
+    *file = (struct _ftp_file_wrapped){
+        .stream = should_pipe ? popen(cmd, "r") : fopen(cmd, "r"),
+        .is_pipe = should_pipe,
+    };
 
-    return popen(cmd, "r");
+    return (struct ftp_file *)file;
+}
+
+void
+ftp_file_close(struct ftp_file *file)
+{
+    if (((struct _ftp_file_wrapped *)file)->is_pipe)
+        pclose(file->stream);
+    else
+        fclose(file->stream);
 }

@@ -126,11 +126,25 @@ _Bool ftp_message_update(struct ftp_message *msg,
 /**
  * @brief Decodifica e executa instruções contidas na mensagem FTP
  * @note will return `NULL` in case there's no output to be read
+ * @see ftp_file_close()
  *
  * @param msg mensagem a ser decodificada e executada
- * @return an opaque `FILE*` pointer, should be free'd with `pclose()`
+ * @return a wrapped `FILE*` pointer, should be free'd with ftp_file_close()
  */
-FILE *ftp_message_unpack(struct ftp_message *msg);
+struct ftp_file *ftp_message_unpack(struct ftp_message *msg);
+
+/** @brief Wrapped `FILE` pointer */
+struct ftp_file {
+    /** output stream */
+    FILE *stream;
+};
+
+/**
+ * @brief Closes an open @ref ftp_file
+ *
+ * @param file file received at ftp_message_unpack()
+ */
+void ftp_file_close(struct ftp_file *file);
 
 /**
  * @brief Inicializa servidor

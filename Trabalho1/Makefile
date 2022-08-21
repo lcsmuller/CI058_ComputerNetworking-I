@@ -9,11 +9,14 @@ OBJS = $(SRC_DIR)/ftp_message.o \
        $(SRC_DIR)/ftp_server.o  \
        $(SRC_DIR)/ftp_client.o
 
-CFLAGS = -Wall -Wextra -Werror -Wpedantic -I$(INCLUDE_DIR)
+CFLAGS += -Wall -Wextra -Werror -Wpedantic -I$(INCLUDE_DIR)
 
 SERVER_PORT = 5010
 
 all:  $(EXES)
+
+debug:
+	@ CFLAGS="-DFTP_DEBUG" $(MAKE)
 
 test:
 	@ echo "Hello World!" | nc 127.0.0.1 $(SERVER_PORT)
