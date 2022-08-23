@@ -1,20 +1,30 @@
 #include <bits/stdc++.h>
 using namespace std;
+using die = pair<int,bool>;
 
 #define NUMDICE 5
 
+
 class game {
 private:
-    vector<int> dice = vector<int>(NUMDICE,0);
+    vector<die> dice = vector<die>(NUMDICE,make_pair(0,false));
+    //vector<int> dice = vector<int>(NUMDICE,0);
     vector<bool> locked = vector<bool>(NUMDICE,false);
+
+    bool prompt_roll();
+    void roll();
 
 public:
     game(/* args */);
     ~game();
-    void roll();
+
     void print_dice();
     int get_value();
     void print_bet();
+    void play_round();
+
+    int coins = 10;
+    int bet;
 };
 
 game::game(/* args */) {
@@ -25,18 +35,27 @@ game::~game() {
 
 void game::roll() {
     for (int i = 0; i < NUMDICE; i++) {
-        if (!locked[i]) {
-            dice[i] = rand() % 6 + 1;
+        if (!dice[i].second) {
+            dice[i].first = rand() % 6 + 1;
             
         }
     }
+    //dice[0].second = true;
+    //dice[2].second = true;
     sort(dice.begin(), dice.end());
     locked = vector<bool>(NUMDICE,false); //reseta todas as locks
 }
 
 void game::print_dice() {
+    cout << "Dados: (números entre [] estão trancados)\n";
     for (int i = 0; i < NUMDICE; i++) {
-        cout << dice[i] << ' ';
+        if (dice[i].second)
+            cout << "[";
+        cout << dice[i].first;
+        if (dice[i].second)
+            cout << "]";
+        cout << " ";
+
     }
     cout << '\n';
 }
@@ -46,7 +65,7 @@ void game::print_dice() {
 int game::get_value() {
     multiset<int> m;
     for (int i = 0; i < NUMDICE; i++) {
-        m.insert(dice[i]);
+        m.insert(dice[i].first);
     }
     for (int i = 1; i <= 6; i++) {
         if (m.count(i) == 5)
@@ -67,7 +86,7 @@ int game::get_value() {
     int diff;
     bool flushFlag = true;
     for (int i = 1; i < NUMDICE; i++) {
-        diff = dice[i] - dice[i-1];
+        diff = dice[i].first - dice[i-1].first;
         if (diff != 1)
             flushFlag = false;
     }
@@ -116,11 +135,75 @@ void game::print_bet() {
     }
 }
 
+bool valid_prompt(char c) {
+    return (c == 'y' || c == 'Y' || c == 'n' || c == 'N');
+}
+
+bool yes_prompt(char c) {
+    return (c == 'y' || c == 'Y');
+}
+
+bool no_prompt(char c) {
+    return (c == 'n' || c == 'N');
+}
+
+bool game::prompt_roll() {
+    bool rolling = false;
+    char c = '\0',d = '\0';
+    int toLock = -1;
+    
+    while (!valid_prompt(c)) {
+        cout << "Quer jogar os dados de novo? (Y/N)\n";
+        cin >> c;
+        if (yes_prompt(c)) {
+            rolling = true;
+            while (!valid_prompt(d)) {
+                cout << "Quer trancar um dado? (Y/N)\n";
+                cin >> d;
+                if (yes_prompt(d))
+                    while (toLock < 0 || toLock >= NUMDICE) {
+                        cout << "Digite o índice do dado a ser trancado (1-" << NUMDICE <<")\n";
+                        cin >> toLock;
+                        toLock--;
+                        if (0 <= toLock  && toLock < NUMDICE) {
+                            if (dice[toLock].second) {
+                                cout << "Dado já trancado\n";
+                                toLock = -1;
+                            }
+                            else
+                                dice[toLock].second = true;
+                        }
+                    }
+            }
+        }
+    }
+    return rolling;
+}
+
+void game::play_round() {
+    for (int i = 0; i < NUMDICE; i++)
+        dice[i].second = 0;
+    roll();
+    print_dice();
+    bool rolling = false;
+    rolling = prompt_roll();
+    if (rolling) { //segunda jogada
+        roll();
+        print_dice();
+        rolling = prompt_roll();
+        if (rolling) {  //terceira jogada
+            roll();
+            print_dice();
+        }
+    }
+    print_bet();
+}
+
 int main () {
     srand(time(NULL)); //randomização
     
     game g;
-    g.roll();
-    g.print_dice();
-    g.print_bet();
+    g.play_round();
+    //g.print_dice();
+    //g.print_bet();
 }
