@@ -28,7 +28,7 @@ public:
 
     int coins = 5;
     int bet = 1;
-    int targetValue;
+    int targetValue = 0;
 };
 
 game::game(/* args */) {
@@ -141,7 +141,7 @@ void game::print_bet() {
         break;
     }
     if (val == targetValue) {
-        cout << "Aposta sucedida!! + " << val << " moedas!\n";
+        cout << "Aposta sucedida!! +" << val << " moedas!\n";
     }
     else {
         cout << "Aposta não sucedida...\n";
@@ -195,6 +195,7 @@ bool game::prompt_roll() {
 
 void game::get_target() {
     int targetIndex = -1;
+    char in = '\0';
     while (targetIndex < 1 || targetIndex > 7) {
         cout << "Em qual combinação quer apostar? (Digite o índice)\n" 
         << "1: Um par\n"
@@ -204,9 +205,15 @@ void game::get_target() {
         << "5: Sequência\n"
         << "6: Quadra\n"
         << "7: Quinteto\n";
-        cin >> targetIndex;
-        if (targetIndex < 1 || targetIndex > 7)
-            cout << "Número inválido\n";
+        cin >> in;
+        if (in - '0' < 1 || in - '0' > 7) {
+            cout << "Entrada inválida\n";
+            targetIndex = -1;
+        }
+        else {
+            targetIndex = in - '0';
+        }
+            
     }
     switch (targetIndex) {
     case 1:
@@ -231,6 +238,7 @@ void game::get_target() {
         targetValue = 15;
         break;
     default:
+        targetValue = 0;
         break;
     }
 }
@@ -261,11 +269,14 @@ void game::play_round() {
 
 int main () {
     srand(time(NULL)); //randomização
-    int received = 0;
+    int received = 0; //dado a ser recebido
+    bool canPlay = true; //habilitado se este jogador puder jogar
     game g;
     while (g.coins > 0 && received >= 0) {
-        g.print_balance();
-        g.play_round();
+        if (canPlay) {
+            g.print_balance();
+            g.play_round();
+        }
         cout << "\n";
     }
     cout << "Fim de jogo!\n";
