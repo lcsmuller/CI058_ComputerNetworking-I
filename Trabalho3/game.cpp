@@ -162,7 +162,7 @@ bool no_prompt(char c) {
 
 bool game::prompt_roll() {
     bool rolling = false;
-    char c = '\0',d = '\0';
+    char c = '\0',d = '\0', e = '\0';
     int toLock = -1;
     
     while (!valid_prompt(c)) {
@@ -176,7 +176,8 @@ bool game::prompt_roll() {
                 if (yes_prompt(d))
                     while (toLock < 0 || toLock >= NUMDICE) {
                         cout << "Digite o índice do dado a ser trancado (1-" << NUMDICE <<")\n";
-                        cin >> toLock;
+                        cin >> e;
+                        toLock = e - '0';
                         toLock--;
                         if (0 <= toLock  && toLock < NUMDICE) {
                             if (dice[toLock].second) {
@@ -266,6 +267,10 @@ void game::play_round() {
         coins += targetValue;
     }
 }
+
+/* TODO: connections, bet escalation
+*
+*/
 
 int main () {
     srand(time(NULL)); //randomização
