@@ -13,6 +13,7 @@ private:
 
     bool prompt_roll();
     void roll();
+    void get_target();
 
 public:
     game(/* args */);
@@ -22,15 +23,22 @@ public:
     int get_value();
     void print_bet();
     void play_round();
+    void print_balance();
+    
 
-    int coins = 10;
-    int bet;
+    int coins = 5;
+    int bet = 1;
+    int targetValue;
 };
 
 game::game(/* args */) {
 }
 
 game::~game() {
+}
+
+void game::print_balance() {
+    cout << "Moedas: " << coins << "\n";
 }
 
 void game::roll() {
@@ -105,7 +113,6 @@ int game::get_value() {
 
 void game::print_bet() {
     int val = game::get_value();
-    cout << "Valor: " << val << "! ";
     switch (val) {
     case 15:
         cout << "Quinteto!\n";
@@ -132,6 +139,12 @@ void game::print_bet() {
     default:
         cout << "Nenhuma combinação...\n";
         break;
+    }
+    if (val == targetValue) {
+        cout << "Aposta sucedida!! + " << val << " moedas!\n";
+    }
+    else {
+        cout << "Aposta não sucedida...\n";
     }
 }
 
@@ -180,9 +193,53 @@ bool game::prompt_roll() {
     return rolling;
 }
 
+void game::get_target() {
+    int targetIndex = -1;
+    while (targetIndex < 1 || targetIndex > 7) {
+        cout << "Em qual combinação quer apostar? (Digite o índice)\n" 
+        << "1: Um par\n"
+        << "2: Um trio\n"
+        << "3: Dois pares\n"
+        << "4: Full House\n"
+        << "5: Sequência\n"
+        << "6: Quadra\n"
+        << "7: Quinteto\n";
+        cin >> targetIndex;
+        if (targetIndex < 1 || targetIndex > 7)
+            cout << "Número inválido\n";
+    }
+    switch (targetIndex) {
+    case 1:
+        targetValue = 2;
+        break;
+    case 2:
+        targetValue = 3;
+        break;
+    case 3:
+        targetValue = 4;
+        break;
+    case 4:
+        targetValue = 5;
+        break;
+    case 5:
+        targetValue = 7;
+        break;
+    case 6:
+        targetValue = 10;
+        break;
+    case 7:
+        targetValue = 15;
+        break;
+    default:
+        break;
+    }
+}
+
 void game::play_round() {
     for (int i = 0; i < NUMDICE; i++)
         dice[i].second = 0;
+    coins -= bet;
+    get_target();
     roll();
     print_dice();
     bool rolling = false;
@@ -197,13 +254,21 @@ void game::play_round() {
         }
     }
     print_bet();
+    if (get_value() == targetValue) {
+        coins += targetValue;
+    }
 }
 
 int main () {
     srand(time(NULL)); //randomização
-    
+    int received = 0;
     game g;
-    g.play_round();
+    while (g.coins > 0 && received >= 0) {
+        g.print_balance();
+        g.play_round();
+        cout << "\n";
+    }
+    cout << "Fim de jogo!\n";
     //g.print_dice();
     //g.print_bet();
 }
