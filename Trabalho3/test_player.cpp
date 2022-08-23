@@ -5,9 +5,9 @@
 int
 main(int argc, char *argv[])
 {
+    unsigned char baton[1024];
     struct player *player;
     unsigned position;
-    char baton[1024];
 
     if (argc <= 1) {
       fputs("Error: Insira o número do jogador de 1 a 4!\n", stderr);
@@ -22,7 +22,7 @@ main(int argc, char *argv[])
     player = player_create(position - 1);
     if (player_get_position(player) == 0) { // primeiro jogador
       puts("Insira mensagem inicial a ser passada pelo bastão:\t");
-      fgets(baton, sizeof(baton), stdin);
+      fgets((char *)baton, sizeof(baton), stdin);
       player_send_to_next(player, baton, sizeof(baton));
     }
 
@@ -36,7 +36,7 @@ main(int argc, char *argv[])
 
       /* altera mensagem do bastão */
       puts("Insira nova mensagem a ser passada pelo bastão:\t");
-      fgets(baton, sizeof(baton), stdin);
+      fgets((char *)baton, sizeof(baton), stdin);
 
       // passa bastão para o próximo jogador
       if (player_send_to_next(player, baton, sizeof(baton)) < 0) {
