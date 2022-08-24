@@ -29,6 +29,7 @@ class game
     void print_bet();
     void play_round(unsigned bet);
     void print_balance();
+    void print_bet_type(int type);
 
     int coins = 5;
     int targetValue = 0;
@@ -143,6 +144,34 @@ game::print_bet()
     }
     else {
         cout << "Aposta não sucedida...\n";
+    }
+}
+
+void game::print_bet_type(int type) {
+    switch(type) {
+    case 15:
+        cout << "Quinteto\n";
+        break;
+    case 10:
+        cout << "Quadra\n";
+        break;
+    case 7:
+        cout << "Sequência\n";
+        break;
+    case 5:
+        cout << "Full House\n";
+        break;
+    case 4:
+        cout << "Dois pares\n";
+        break;
+    case 3:
+        cout << "Um trio\n";
+        break;
+    case 2:
+        cout << "Um par\n";
+        break;
+    default:
+        cout << "Nenhuma aposta\n";
     }
 }
 
@@ -369,8 +398,11 @@ main(int argc, char *argv[])
 
             if (cycle == 1) {
                 char c;
-
+                int aux = baton[BATON_BET_AMOUNT];
                 g.print_balance();
+                cout << "Aposta atual: " << (int)baton[BATON_BET_AMOUNT] << "\n";
+                cout << "Combinação apostada: ";
+                g.print_bet_type((int)baton[BATON_BET_TYPE]);
                 while (1) {
                     cout << "Deseja jogar? (Y/N)\n";
                     cin >> c;
