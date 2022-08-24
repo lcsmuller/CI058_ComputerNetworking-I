@@ -110,6 +110,7 @@ void
 game::print_bet()
 {
     int val = game::get_value();
+
     switch (val) {
     case 15:
         cout << "Quinteto!\n";
@@ -132,11 +133,11 @@ game::print_bet()
     case 2:
         cout << "Um par!\n";
         break;
-
     default:
         cout << "Nenhuma combinação...\n";
         break;
     }
+
     if (val == targetValue) {
         cout << "Aposta sucedida!! +" << val << " moedas!\n";
     }
@@ -255,6 +256,7 @@ game::play_round(unsigned bet)
             print_dice();
         }
     }
+
     print_bet();
     if (get_value() == targetValue) {
         coins += targetValue;
@@ -324,6 +326,7 @@ main(int argc, char *argv[])
 
         if (currPlayerPos == baton[BATON_INITIAL_PLAYER]) { // origem
             if (cycle == 1) { // inicia jogada da partida
+                g.print_balance();
                 g.get_target();
                 cout << "\n";
 
@@ -336,8 +339,6 @@ main(int argc, char *argv[])
                 if (baton[BATON_BET_TYPE] == END_GAME) continue;
 
                 if (currPlayerPos == baton[BATON_BET_LEADER]) {
-                    // lider faz sua jogada
-                    g.print_balance();
                     g.play_round(baton[BATON_BET_AMOUNT]);
                 }
                 ++cycle;
@@ -350,7 +351,7 @@ main(int argc, char *argv[])
                     (currPlayerPos < 3) ? 1 : -baton[BATON_INITIAL_PLAYER];
                 baton_update(baton, NEW_GAME,
                              baton[BATON_INITIAL_PLAYER] + incr,
-                             baton[BATON_INITIAL_PLAYER] + incr, 0);
+                             baton[BATON_INITIAL_PLAYER] + incr, -1);
                 cycle = 1;
             }
 
@@ -362,13 +363,14 @@ main(int argc, char *argv[])
 
             if (cycle == 3) {
                 cycle = 1;
-
-                // jogador é a nova origem, volta para inicio do loop
+                // se jogador é a nova origem, volta para inicio do loop
                 if (currPlayerPos == baton[BATON_INITIAL_PLAYER]) continue;
             }
 
             if (cycle == 1) {
                 char c;
+
+                g.print_balance();
                 while (1) {
                     cout << "Deseja jogar? (Y/N)\n";
                     cin >> c;
@@ -384,8 +386,7 @@ main(int argc, char *argv[])
                 }
             }
             else if (cycle == 2 && currPlayerPos == baton[BATON_BET_LEADER]) {
-                // lider faz sua jogada
-                g.print_balance();
+                g.targetValue = baton[BATON_BET_TYPE];
                 g.play_round(baton[BATON_BET_AMOUNT]);
             }
 
