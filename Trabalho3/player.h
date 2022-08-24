@@ -26,10 +26,12 @@ void player_cleanup(struct player *player);
  * @param player jogador corrente
  * @param baton bastão
  * @param nbytes qtd de bytes a ser enviado
+ * @param flags sendto() flags
  */
 void player_send_to_next(struct player *player,
                          const char *baton,
-                         size_t nbytes);
+                         size_t nbytes,
+                         int flags);
 
 /**
  * @brief Envia mensagem para o jogador anterior
@@ -37,8 +39,12 @@ void player_send_to_next(struct player *player,
  * @param player jogador corrente
  * @param baton bastão
  * @param nbytes qtd de bytes a ser recebido
+ * @param flags recvfrom() flags
  */
-void player_recv_from_prev(struct player *player, char *baton, size_t nbytes);
+void player_recv_from_prev(struct player *player,
+                           char *baton,
+                           size_t nbytes,
+                           int flags);
 
 /**
  * @brief Recebe posição do jogador corrente (0 a 3)
