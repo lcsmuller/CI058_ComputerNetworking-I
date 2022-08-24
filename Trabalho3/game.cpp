@@ -5,6 +5,11 @@ using namespace std;
 using die = pair<int, bool>;
 
 #define NUMDICE 5
+
+#define PROMPT_YES(c)   (c == 'y' || c == 'Y')
+#define PROMPT_NO(c)    (c == 'n' || c == 'N')
+#define PROMPT_VALID(c) (PROMPT_YES(c) || PROMPT_NO(c))
+
 class game
 {
   private:
@@ -141,39 +146,21 @@ game::print_bet()
 }
 
 bool
-valid_prompt(char c)
-{
-    return (c == 'y' || c == 'Y' || c == 'n' || c == 'N');
-}
-
-bool
-yes_prompt(char c)
-{
-    return (c == 'y' || c == 'Y');
-}
-
-bool
-no_prompt(char c)
-{
-    return (c == 'n' || c == 'N');
-}
-
-bool
 game::prompt_roll()
 {
     bool rolling = false;
     char c = '\0', d = '\0', e = '\0';
     int toLock = -1;
 
-    while (!valid_prompt(c)) {
+    while (!PROMPT_VALID(c)) {
         cout << "Quer jogar os dados de novo? (Y/N)\n";
         cin >> c;
-        if (yes_prompt(c)) {
+        if (PROMPT_YES(c)) {
             rolling = true;
-            while (!valid_prompt(d)) {
+            while (!PROMPT_VALID(d)) {
                 cout << "Quer trancar um dado? (Y/N)\n";
                 cin >> d;
-                if (yes_prompt(d))
+                if (PROMPT_YES(d))
                     while (toLock < 0 || toLock >= NUMDICE) {
                         cout << "Digite o índice do dado a ser trancado (1-"
                              << NUMDICE << ")\n";
@@ -394,9 +381,9 @@ main(int argc, char *argv[])
                 while (1) {
                     cout << "Deseja jogar? (Y/N)\n";
                     cin >> c;
-                    if (no_prompt(c))
+                    if (PROMPT_NO(c))
                         break;
-                    else if (yes_prompt(c)) {
+                    else if (PROMPT_YES(c)) {
                         g.get_target();
                         cout << "\n";
 
