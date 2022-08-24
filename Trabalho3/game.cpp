@@ -317,10 +317,8 @@ main(int argc, char *argv[])
     int cycle = 1; // ciclo corrente
     while (1) {
         if (g.coins <= 0 || baton[BATON_BET_TYPE] == END_GAME) {
-            baton_update(baton, END_GAME, baton[BATON_INITIAL_PLAYER],
-                         baton[BATON_BET_LEADER], 1);
-            if (player_send_to_next(player, baton, sizeof(baton)) < 0)
-                perror("Não foi possível enviar ao próximo jogador ");
+            baton_update(baton, END_GAME, -1, -1, -1);
+            player_send_to_next(player, baton, sizeof(baton));
             break;
         }
 
@@ -334,17 +332,19 @@ main(int argc, char *argv[])
                 ++cycle;
             }
             else if (cycle == 2) { // aguarda lider jogar dado da aposta
-                if (player_recv_from_prev(player, baton, sizeof(baton)) < 0) {
-                    perror("Não foi possível receber do jogador anterior ");
-                    break;
+                player_recv_from_prev(player, baton, sizeof(baton));
+                if (baton[BATON_BET_TYPE] == END_GAME) continue;
+
+                if (currPlayerPos == baton[BATON_BET_LEADER]) {
+                    // lider faz sua jogada
+                    g.print_balance();
+                    g.play_round(baton[BATON_BET_AMOUNT]);
                 }
                 ++cycle;
             }
             else if (cycle == 3) { // inicia proxima partida
-                if (player_recv_from_prev(player, baton, sizeof(baton)) < 0) {
-                    perror("Não foi possível receber do jogador anterior ");
-                    break;
-                }
+                player_recv_from_prev(player, baton, sizeof(baton));
+                if (baton[BATON_BET_TYPE] == END_GAME) continue;
 
                 const int incr =
                     (currPlayerPos < 3) ? 1 : -baton[BATON_INITIAL_PLAYER];
@@ -354,19 +354,10 @@ main(int argc, char *argv[])
                 cycle = 1;
             }
 
-            if (baton[BATON_BET_TYPE] == END_GAME) continue;
-
-            if (player_send_to_next(player, baton, sizeof(baton)) < 0) {
-                perror("Não foi possível enviar ao próximo jogador ");
-                break;
-            }
+            player_send_to_next(player, baton, sizeof(baton));
         }
         else { // jogador
-            if (player_recv_from_prev(player, baton, sizeof(baton)) < 0) {
-                perror("Não foi possível receber do jogador anterior ");
-                break;
-            }
-
+            player_recv_from_prev(player, baton, sizeof(baton));
             if (baton[BATON_BET_TYPE] == END_GAME) continue;
 
             if (cycle == 3) {
@@ -384,13 +375,10 @@ main(int argc, char *argv[])
                     if (PROMPT_NO(c))
                         break;
                     else if (PROMPT_YES(c)) {
-                        g.get_target();
-                        cout << "\n";
-
-                        baton_update(
-                            baton, g.targetValue, baton[BATON_INITIAL_PLAYER],
-                            currPlayerPos, baton[BATON_BET_AMOUNT] + 1);
-
+                        baton_update(baton, baton[BATON_BET_TYPE],
+                                     baton[BATON_INITIAL_PLAYER],
+                                     currPlayerPos,
+                                     baton[BATON_BET_AMOUNT] + 1);
                         break;
                     }
                 }
@@ -401,16 +389,13 @@ main(int argc, char *argv[])
                 g.play_round(baton[BATON_BET_AMOUNT]);
             }
 
-            if (player_send_to_next(player, baton, sizeof(baton)) < 0) {
-                perror("Não foi possível enviar ao próximo jogador ");
-                break;
-            }
+            player_send_to_next(player, baton, sizeof(baton));
 
             ++cycle;
         }
     }
 
     cout << "Fim de jogo!\n";
-
+    player_cleanup(player);
     return EXIT_SUCCESS;
 }

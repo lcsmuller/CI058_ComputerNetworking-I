@@ -28,10 +28,7 @@ main(int argc, char *argv[])
 
     while (1) { // loop de jogo
         // aguarda bastão do jogador anterior
-        if (player_recv_from_prev(player, baton, sizeof(baton)) < 0) {
-            perror("Não foi possível receber do jogador anterior: ");
-            break;
-        }
+        player_recv_from_prev(player, baton, sizeof(baton));
         fprintf(stderr, "Rival anterior envia: %s\n", baton);
 
         /* altera mensagem do bastão */
@@ -39,10 +36,7 @@ main(int argc, char *argv[])
         fgets(baton, sizeof(baton), stdin);
 
         // passa bastão para o próximo jogador
-        if (player_send_to_next(player, baton, sizeof(baton)) < 0) {
-            perror("Não foi possível enviar para o próximo jogador: ");
-            break;
-        }
+        player_send_to_next(player, baton, sizeof(baton));
     }
 
     player_cleanup(player);

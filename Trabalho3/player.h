@@ -22,23 +22,23 @@ void player_cleanup(struct player *player);
 
 /**
  * @brief Envia mensagem para o próximo jogador
- * 
+ *
  * @param player jogador corrente
  * @param baton bastão
  * @param nbytes qtd de bytes a ser enviado
- * @return < 0 em casa de falha
  */
-int player_send_to_next(struct player *player, const char *baton, size_t nbytes);
+void player_send_to_next(struct player *player,
+                         const char *baton,
+                         size_t nbytes);
 
 /**
  * @brief Envia mensagem para o jogador anterior
- * 
+ *
  * @param player jogador corrente
  * @param baton bastão
  * @param nbytes qtd de bytes a ser recebido
- * @return < 0 em casa de falha
  */
-int player_recv_from_prev(struct player *player, char *baton, size_t nbytes);
+void player_recv_from_prev(struct player *player, char *baton, size_t nbytes);
 
 /**
  * @brief Recebe posição do jogador corrente (0 a 3)
