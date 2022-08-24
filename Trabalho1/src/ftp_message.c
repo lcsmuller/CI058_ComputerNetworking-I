@@ -194,8 +194,8 @@ ftp_message_unpack(struct ftp_message *msg)
     const enum ftp_message_types type = ftp_message_get_type(msg);
     unsigned size = ftp_message_get_data_size(msg);
     const char *name = NULL;
-    char cmd[1024] = { 0 };
     bool should_pipe = true;
+    char cmd[1024] = { 0 };
 
     switch (type) {
     case FTP_TYPES_MKDIR:
@@ -204,7 +204,7 @@ ftp_message_unpack(struct ftp_message *msg)
     case FTP_TYPES_LS:
         name = "ls";
         break;
-    case FTP_TYPES_CD: /**< @todo print getcwd() output */
+    case FTP_TYPES_CD:
         memcpy(cmd, ftp_message_get_data(msg), size);
         chdir(cmd);
         name = "pwd";
@@ -234,4 +234,5 @@ ftp_file_close(struct ftp_file *file)
         pclose(file->stream);
     else
         fclose(file->stream);
+    free(file);
 }
