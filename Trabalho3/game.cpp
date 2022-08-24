@@ -1,4 +1,6 @@
 #include <bits/stdc++.h>
+#include <sys/socket.h>
+
 #include "player.h"
 
 using namespace std;
@@ -13,6 +15,17 @@ using die = pair<int, bool>;
 class game
 {
   private:
+    enum targetTypes {
+        NONE = 0,
+        PAIR = 1,
+        THREE_OF_A_KIND = 2,
+        TWO_PAIRS = 3,
+        FULL_HOUSE = 4,
+        SMALL_STRAIGHT = 5,
+        FOUR_OF_A_KIND = 6,
+        YAHTZEE = 7,
+    };
+
     vector<die> dice = vector<die>(NUMDICE, make_pair(0, false));
     vector<bool> locked = vector<bool>(NUMDICE, false);
 
@@ -23,7 +36,7 @@ class game
     game(/* args */);
     ~game();
 
-    int get_target();
+    void get_target();
     void print_dice();
     int get_value();
     void print_bet();
@@ -42,19 +55,18 @@ game::~game() {}
 void
 game::print_balance()
 {
-    cout << "Moedas: " << coins << "\n";
+    cout << "Moedas: " << this->coins << "\n";
 }
 
 void
 game::roll()
 {
-    for (int i = 0; i < NUMDICE; i++) {
-        if (!dice[i].second) {
-            dice[i].first = rand() % 6 + 1;
-        }
-    }
-    sort(dice.begin(), dice.end());
-    locked = vector<bool>(NUMDICE, false); // reseta todas as locks
+    for (int i = 0; i < NUMDICE; i++)
+        if (!this->dice[i].second)
+            this->dice[i].first = rand() % 6 + 1;
+
+    sort(this->dice.begin(), this->dice.end());
+    this->locked = vector<bool>(NUMDICE, false); // reseta todas as locks
 }
 
 void
@@ -62,9 +74,9 @@ game::print_dice()
 {
     cout << "Dados: (números entre [] estão trancados)\n";
     for (int i = 0; i < NUMDICE; i++) {
-        if (dice[i].second) cout << "[";
-        cout << dice[i].first;
-        if (dice[i].second) cout << "]";
+        if (this->dice[i].second) cout << "[";
+        cout << this->dice[i].first;
+        if (this->dice[i].second) cout << "]";
         cout << " ";
     }
     cout << '\n';
@@ -76,19 +88,20 @@ int
 game::get_value()
 {
     multiset<int> m;
-    for (int i = 0; i < NUMDICE; i++) {
+    for (int i = 0; i < NUMDICE; i++)
         m.insert(dice[i].first);
-    }
     for (int i = 1; i <= 6; i++) {
         if (m.count(i) == 5) return 15; // quinteto
         if (m.count(i) == 4) return 10; // quadra
 
         for (int j = 1; j <= 6; j++) {
             if (i == j) continue;
+
             if (m.count(i) == 3 && m.count(j) == 2) return 5; // full house
             if (m.count(i) == 2 && m.count(j) == 2) return 4; // dois pares
         }
     }
+
     // sabemos que não houve 2 pares, full house, quadra ou quinteto;
     // falta ver sequências, 1 trio e 1 par
     int diff;
@@ -139,12 +152,10 @@ game::print_bet()
         break;
     }
 
-    if (val == targetValue) {
+    if (val == targetValue)
         cout << "Aposta sucedida!! +" << val << " moedas!\n";
-    }
-    else {
+    else
         cout << "Aposta não sucedida...\n";
-    }
 }
 
 void game::print_bet_type(int type) {
@@ -172,6 +183,7 @@ void game::print_bet_type(int type) {
         break;
     default:
         cout << "Nenhuma aposta\n";
+        break;
     }
 }
 
@@ -185,40 +197,40 @@ game::prompt_roll()
     while (!PROMPT_VALID(c)) {
         cout << "Quer jogar os dados de novo? (Y/N)\n";
         cin >> c;
-        if (PROMPT_YES(c)) {
-            rolling = true;
-            while (!PROMPT_VALID(d)) {
-                cout << "Quer trancar um dado? (Y/N)\n";
-                cin >> d;
-                if (PROMPT_YES(d))
-                    while (toLock < 0 || toLock >= NUMDICE) {
-                        cout << "Digite o índice do dado a ser trancado (1-"
-                             << NUMDICE << ")\n";
-                        cin >> e;
-                        toLock = e - '0';
-                        toLock--;
-                        if (0 <= toLock && toLock < NUMDICE) {
-                            if (dice[toLock].second) {
-                                cout << "Dado já trancado\n";
-                                toLock = -1;
-                            }
-                            else
-                                dice[toLock].second = true;
-                        }
+        if (!PROMPT_YES(c)) continue;
+
+        rolling = true;
+        while (!PROMPT_VALID(d)) {
+            cout << "Quer trancar um dado? (Y/N)\n";
+            cin >> d;
+            if (!PROMPT_YES(d)) continue;
+
+            while (toLock < 0 || toLock >= NUMDICE) {
+                cout << "Digite o índice do dado a ser trancado (1-"
+                        << NUMDICE << ")\n";
+                cin >> e;
+                toLock = e - '0';
+                toLock--;
+                if (0 <= toLock && toLock < NUMDICE) {
+                    if (!dice[toLock].second)
+                        dice[toLock].second = true;
+                    else {
+                        cout << "Dado já trancado\n";
+                        toLock = -1;
                     }
+                }
             }
         }
     }
     return rolling;
 }
 
-int
+void
 game::get_target()
 {
-    int targetIndex = -1;
-    char in = '\0';
+    enum targetTypes targetIndex = NONE;
 
-    while (targetIndex < 1 || targetIndex > 7) {
+    for (char in = '\0'; targetIndex < PAIR || targetIndex > YAHTZEE;) {
         cout << "Em qual combinação quer apostar? (Digite o índice)\n"
              << "1: Um par\n"
              << "2: Um trio\n"
@@ -228,42 +240,40 @@ game::get_target()
              << "6: Quadra\n"
              << "7: Quinteto\n";
         cin >> in;
-        if (in - '0' < 1 || in - '0' > 7) {
-            cout << "Entrada inválida\n";
-            targetIndex = -1;
-        }
+        if (in - '0' >= PAIR && in - '0' <= YAHTZEE)
+            targetIndex = (enum targetTypes)(in - '0');
         else {
-            targetIndex = in - '0';
+            cout << "Entrada inválida\n";
+            targetIndex = NONE;
         }
     }
 
     switch (targetIndex) {
-    case 1:
+    case PAIR:
         targetValue = 2;
         break;
-    case 2:
+    case THREE_OF_A_KIND:
         targetValue = 3;
         break;
-    case 3:
+    case TWO_PAIRS:
         targetValue = 4;
         break;
-    case 4:
+    case FULL_HOUSE:
         targetValue = 5;
         break;
-    case 5:
+    case SMALL_STRAIGHT:
         targetValue = 7;
         break;
-    case 6:
+    case FOUR_OF_A_KIND:
         targetValue = 10;
         break;
-    case 7:
+    case YAHTZEE:
         targetValue = 15;
         break;
     default:
         targetValue = 0;
         break;
     }
-    return targetIndex;
 }
 
 void
@@ -271,7 +281,9 @@ game::play_round(unsigned bet)
 {
     for (int i = 0; i < NUMDICE; i++)
         dice[i].second = 0;
-    coins -= bet;
+
+    this->coins -= bet;
+
     roll();
     print_dice();
     bool rolling = false;
@@ -287,9 +299,8 @@ game::play_round(unsigned bet)
     }
 
     print_bet();
-    if (get_value() == targetValue) {
-        coins += targetValue;
-    }
+    if (get_value() == this->targetValue)
+        this->coins += this->targetValue;
 }
 
 /** @brief Índices do bastão e seus significados */
@@ -338,7 +349,7 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    const int currPlayerPos = (int)strtoul(argv[1], NULL, 10) - 1;
+    const int currPlayerPos = (int)strtol(argv[1], NULL, 10) - 1;
     if (currPlayerPos < 0 || currPlayerPos > 3) {
         fputs("Error: O número do jogador deve ser entre 1 a 4!\n", stderr);
         return EXIT_FAILURE;
@@ -347,14 +358,13 @@ main(int argc, char *argv[])
 
     int cycle = 1; // ciclo corrente
     while (1) {
-        if (g.coins <= 0 || baton[BATON_BET_TYPE] == END_GAME) {
-            baton_update(baton, END_GAME, -1, -1, -1);
-            player_send_to_next(player, baton, sizeof(baton));
-            break;
-        }
+        if (g.coins <= 0) break;
 
         if (currPlayerPos == baton[BATON_INITIAL_PLAYER]) { // origem
             if (cycle == 1) { // inicia jogada da partida
+                player_recv_from_prev(player, baton, sizeof(baton), MSG_DONTWAIT);
+                if (baton[BATON_BET_TYPE] == END_GAME) break;
+
                 g.print_balance();
                 g.get_target();
                 cout << "\n";
@@ -364,17 +374,16 @@ main(int argc, char *argv[])
                 ++cycle;
             }
             else if (cycle == 2) { // aguarda lider jogar dado da aposta
-                player_recv_from_prev(player, baton, sizeof(baton));
-                if (baton[BATON_BET_TYPE] == END_GAME) continue;
+                player_recv_from_prev(player, baton, sizeof(baton), 0);
+                if (baton[BATON_BET_TYPE] == END_GAME) break;
 
-                if (currPlayerPos == baton[BATON_BET_LEADER]) {
+                if (currPlayerPos == baton[BATON_BET_LEADER])
                     g.play_round(baton[BATON_BET_AMOUNT]);
-                }
                 ++cycle;
             }
             else if (cycle == 3) { // inicia proxima partida
-                player_recv_from_prev(player, baton, sizeof(baton));
-                if (baton[BATON_BET_TYPE] == END_GAME) continue;
+                player_recv_from_prev(player, baton, sizeof(baton), 0);
+                if (baton[BATON_BET_TYPE] == END_GAME) break;
 
                 const int incr =
                     (currPlayerPos < 3) ? 1 : -baton[BATON_INITIAL_PLAYER];
@@ -384,11 +393,11 @@ main(int argc, char *argv[])
                 cycle = 1;
             }
 
-            player_send_to_next(player, baton, sizeof(baton));
+            player_send_to_next(player, baton, sizeof(baton), 0);
         }
         else { // jogador
-            player_recv_from_prev(player, baton, sizeof(baton));
-            if (baton[BATON_BET_TYPE] == END_GAME) continue;
+            player_recv_from_prev(player, baton, sizeof(baton), 0);
+            if (baton[BATON_BET_TYPE] == END_GAME) break;
 
             if (cycle == 3) {
                 cycle = 1;
@@ -421,13 +430,15 @@ main(int argc, char *argv[])
                 g.play_round(baton[BATON_BET_AMOUNT]);
             }
 
-            player_send_to_next(player, baton, sizeof(baton));
+            player_send_to_next(player, baton, sizeof(baton), 0);
 
             ++cycle;
         }
     }
 
     cout << "Fim de jogo!\n";
+    baton_update(baton, END_GAME, -1, -1, -1);
+    player_send_to_next(player, baton, sizeof(baton), 0);
     player_cleanup(player);
     return EXIT_SUCCESS;
 }

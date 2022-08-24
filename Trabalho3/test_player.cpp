@@ -23,12 +23,12 @@ main(int argc, char *argv[])
     if (player_get_position(player) == 0) { // primeiro jogador
         puts("Insira mensagem inicial a ser passada pelo bastão:\t");
         fgets(baton, sizeof(baton), stdin);
-        player_send_to_next(player, baton, sizeof(baton));
+        player_send_to_next(player, baton, sizeof(baton), 0);
     }
 
     while (1) { // loop de jogo
         // aguarda bastão do jogador anterior
-        player_recv_from_prev(player, baton, sizeof(baton));
+        player_recv_from_prev(player, baton, sizeof(baton), 0);
         fprintf(stderr, "Rival anterior envia: %s\n", baton);
 
         /* altera mensagem do bastão */
@@ -36,7 +36,7 @@ main(int argc, char *argv[])
         fgets(baton, sizeof(baton), stdin);
 
         // passa bastão para o próximo jogador
-        player_send_to_next(player, baton, sizeof(baton));
+        player_send_to_next(player, baton, sizeof(baton), 0);
     }
 
     player_cleanup(player);

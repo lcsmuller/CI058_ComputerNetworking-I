@@ -95,26 +95,30 @@ player_cleanup(struct player *player)
 }
 
 void
-player_send_to_next(struct player *player, const char *baton, size_t nbytes)
+player_send_to_next(struct player *player, const char *baton, size_t nbytes, int flags)
 {
-    if (sendto(player->sockfd, baton, nbytes, 0,
+    if (sendto(player->sockfd, baton, nbytes, flags,
                (struct sockaddr *)&player->next->addr,
                sizeof(player->next->addr))
         < 0)
     {
+        if (errno == EAGAIN) return;
+
         perror("Não foi possível enviar ao próximo jogador ");
         exit(EXIT_FAILURE);
     }
 }
 
 void
-player_recv_from_prev(struct player *player, char *baton, size_t nbytes)
+player_recv_from_prev(struct player *player, char *baton, size_t nbytes, int flags)
 {
     socklen_t size = sizeof(player->prev->addr);
-    if (recvfrom(player->sockfd, baton, nbytes, 0,
+    if (recvfrom(player->sockfd, baton, nbytes, flags,
                  (struct sockaddr *)&player->prev->addr, &size)
         < 0)
     {
+        if (errno == EAGAIN) return;
+
         perror("Não foi possível receber do jogador anterior ");
         exit(EXIT_FAILURE);
     }
