@@ -398,7 +398,6 @@ main(int argc, char *argv[])
 
             if (cycle == 1) {
                 char c;
-                int aux = baton[BATON_BET_AMOUNT];
                 g.print_balance();
                 cout << "Aposta atual: " << (int)baton[BATON_BET_AMOUNT] << "\n";
                 cout << "Combinação apostada: ";
