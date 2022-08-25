@@ -62,8 +62,7 @@ void
 game::roll()
 {
     for (int i = 0; i < NUMDICE; i++)
-        if (!this->dice[i].second)
-            this->dice[i].first = rand() % 6 + 1;
+        if (!this->dice[i].second) this->dice[i].first = rand() % 6 + 1;
 
     sort(this->dice.begin(), this->dice.end());
     this->locked = vector<bool>(NUMDICE, false); // reseta todas as locks
@@ -158,8 +157,10 @@ game::print_bet()
         cout << "Aposta não sucedida...\n";
 }
 
-void game::print_bet_type(int type) {
-    switch(type) {
+void
+game::print_bet_type(int type)
+{
+    switch (type) {
     case 15:
         cout << "Quinteto\n";
         break;
@@ -206,8 +207,8 @@ game::prompt_roll()
             if (!PROMPT_YES(d)) continue;
 
             while (toLock < 0 || toLock >= NUMDICE) {
-                cout << "Digite o índice do dado a ser trancado (1-"
-                        << NUMDICE << ")\n";
+                cout << "Digite o índice do dado a ser trancado (1-" << NUMDICE
+                     << ")\n";
                 cin >> e;
                 toLock = e - '0';
                 toLock--;
@@ -299,20 +300,26 @@ game::play_round(unsigned bet)
     }
 
     print_bet();
-    if (get_value() == this->targetValue)
-        this->coins += this->targetValue;
+    if (get_value() == this->targetValue) this->coins += this->targetValue;
 }
+
+/** valor arbitrário para indicar inicio do pacote do bastão */
+#define HEADER_VALUE (0x3f)
 
 /** @brief Índices do bastão e seus significados */
 enum baton_indexes {
+    /** marcador de início */
+    BATON_HEADER = 0,
     /** tipo da aposta */
-    BATON_BET_TYPE = 0,
+    BATON_BET_TYPE,
     /** posição do jogador inicial da partida (0 a 3) */
-    BATON_INITIAL_PLAYER = 1,
+    BATON_INITIAL_PLAYER,
     /** posição do jogador com maior a maior aposta da partida (0 a 3) */
-    BATON_BET_LEADER = 2,
+    BATON_BET_LEADER,
     /** maior quantidade apostada na partida */
-    BATON_BET_AMOUNT = 3,
+    BATON_BET_AMOUNT,
+    /** byte de paridade */
+    BATON_PARITY,
     /** quantidade total de índices para o bastão */
     BATON_MAX,
 };
@@ -322,8 +329,44 @@ enum baton_indexes {
 /** indica novo jogo */
 #define NEW_GAME -2
 
+/**
+ * @brief Inicializa bastão com valores defaults
+ *
+ * @param baton bastão a ser inicializado
+ */
 void
-baton_update(char baton[BATON_INITIAL_PLAYER],
+baton_init(char baton[BATON_MAX])
+{
+    memset(baton, 0, BATON_MAX);
+    baton[BATON_HEADER] = HEADER_VALUE;
+}
+
+/**
+ * @brief Obtêm byte de paridade do bastão
+ *
+ * @param baton bastão a ser referenciado
+ * @return xor acumulador de cada bytes
+ */
+char
+baton_get_parity(char baton[BATON_MAX])
+{
+    char compound_xor = baton[0];
+    for (int i = 1; i < BATON_MAX - 1; ++i)
+        compound_xor ^= baton[i];
+    return compound_xor;
+}
+
+/**
+ * @brief Atualiza conteúdo do bastão
+ *
+ * @param baton bastão a ser atualizado
+ * @param bet_type tipo da aposta
+ * @param initial_player_pos posição do jogador inicial da partida
+ * @param lead_player_pos posição do jogador lider da partida
+ * @param bet_amount quantidade acumulada da aposta
+ */
+void
+baton_update(char baton[BATON_MAX],
              char bet_type,
              char initial_player_pos,
              char lead_player_pos,
@@ -333,13 +376,32 @@ baton_update(char baton[BATON_INITIAL_PLAYER],
     baton[BATON_INITIAL_PLAYER] = initial_player_pos;
     baton[BATON_BET_LEADER] = lead_player_pos;
     baton[BATON_BET_AMOUNT] = bet_amount;
+    baton[BATON_PARITY] = baton_get_parity(baton);
 }
+
+/**
+ * @brief Checa condições de existência / prosseguimento do bastão
+ *
+ * Finaliza jogo se bastão conter um header inesperado ou caso o seu tipo
+ *      indique fim de jogo (@ref END_GAME)
+ * @param baton bastão recebido por player_recv_from_prev()
+ */
+#define BATON_CHECKER(baton)                                                  \
+    if (baton[BATON_HEADER] != HEADER_VALUE) {                                \
+        fputs("Error: Pacote inesperado!\n", stderr);                         \
+        baton[BATON_BET_TYPE] = END_GAME;                                     \
+    }                                                                         \
+    else if (baton[BATON_PARITY] != baton_get_parity(baton)) {                \
+        fputs("Error: Pacote corrompido!\n", stderr);                         \
+        baton[BATON_BET_TYPE] = END_GAME;                                     \
+    }                                                                         \
+    if (baton[BATON_BET_TYPE] == END_GAME) continue
 
 int
 main(int argc, char *argv[])
 {
-    char baton[BATON_MAX] = { 0 };
     struct player *player;
+    char baton[BATON_MAX];
     game g;
 
     srand(time(NULL));
@@ -355,14 +417,19 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     player = player_create(currPlayerPos);
+    baton_init(baton);
 
-    int cycle = 1; // ciclo corrente
-    while (1) {
-        if (g.coins <= 0) break;
+    for (int cycle = 1;;) {
+        if (g.coins <= 0 || baton[BATON_BET_TYPE] == END_GAME) {
+            baton_update(baton, END_GAME, -1, -1, -1);
+            player_send_to_next(player, baton, sizeof(baton), 0);
+            break;
+        }
 
         if (currPlayerPos == baton[BATON_INITIAL_PLAYER]) { // origem
             if (cycle == 1) { // inicia jogada da partida
-                player_recv_from_prev(player, baton, sizeof(baton), MSG_DONTWAIT);
+                player_recv_from_prev(player, baton, sizeof(baton),
+                                      MSG_DONTWAIT);
                 if (baton[BATON_BET_TYPE] == END_GAME) break;
 
                 g.print_balance();
@@ -375,7 +442,7 @@ main(int argc, char *argv[])
             }
             else if (cycle == 2) { // aguarda lider jogar dado da aposta
                 player_recv_from_prev(player, baton, sizeof(baton), 0);
-                if (baton[BATON_BET_TYPE] == END_GAME) break;
+                BATON_CHECKER(baton);
 
                 if (currPlayerPos == baton[BATON_BET_LEADER])
                     g.play_round(baton[BATON_BET_AMOUNT]);
@@ -383,7 +450,7 @@ main(int argc, char *argv[])
             }
             else if (cycle == 3) { // inicia proxima partida
                 player_recv_from_prev(player, baton, sizeof(baton), 0);
-                if (baton[BATON_BET_TYPE] == END_GAME) break;
+                BATON_CHECKER(baton);
 
                 const int incr =
                     (currPlayerPos < 3) ? 1 : -baton[BATON_INITIAL_PLAYER];
@@ -397,7 +464,7 @@ main(int argc, char *argv[])
         }
         else { // jogador
             player_recv_from_prev(player, baton, sizeof(baton), 0);
-            if (baton[BATON_BET_TYPE] == END_GAME) break;
+            BATON_CHECKER(baton);
 
             if (cycle == 3) {
                 cycle = 1;
@@ -408,7 +475,8 @@ main(int argc, char *argv[])
             if (cycle == 1) {
                 char c;
                 g.print_balance();
-                cout << "Aposta atual: " << (int)baton[BATON_BET_AMOUNT] << "\n";
+                cout << "Aposta atual: " << (int)baton[BATON_BET_AMOUNT]
+                     << "\n";
                 cout << "Combinação apostada: ";
                 g.print_bet_type((int)baton[BATON_BET_TYPE]);
                 while (1) {
