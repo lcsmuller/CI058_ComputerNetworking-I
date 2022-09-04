@@ -5,9 +5,8 @@ INCLUDE_DIR = include
 
 EXES = server client
 
-OBJS = $(SRC_DIR)/ftp_message.o \
-       $(SRC_DIR)/ftp_server.o  \
-       $(SRC_DIR)/ftp_client.o
+OBJS = $(SRC_DIR)/ftp_message.o    \
+       $(SRC_DIR)/ftp_raw_socket.o
 
 CFLAGS += -Wall -Wextra -Werror -Wpedantic -I$(INCLUDE_DIR)
 
