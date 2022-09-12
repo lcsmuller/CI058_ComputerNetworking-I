@@ -113,16 +113,16 @@ ftp_message_print(const struct ftp_message *msg, FILE *out)
 bool
 ftp_message_update(struct ftp_message *msg,
                    enum ftp_message_types type,
-                   const char data[],
-                   unsigned size)
+                   const char data[FTP_MESSAGE_DATA_SIZE - 1],
+                   size_t size)
 {
     bool is_truncated;
 
     /* atualiza tamanho */
-    if (size < sizeof(msg->data) - 1)
+    if (size < FTP_MESSAGE_DATA_SIZE - 1)
         is_truncated = false;
     else {
-        size = sizeof(msg->data) - 1;
+        size = FTP_MESSAGE_DATA_SIZE - 1;
         is_truncated = true;
     }
     msg->size = size;
@@ -145,23 +145,27 @@ struct _ftp_file_wrapped {
 struct ftp_file *
 ftp_message_unpack(struct ftp_message *msg)
 {
-    const char *name = NULL;
+    unsigned size = msg->size;
     bool should_pipe = true;
     char cmd[1024] = { 0 };
-    unsigned size = msg->size;
+    const char *name = "";
 
     switch (msg->type) {
     case FTP_TYPES_MKDIR:
-        name = "mkdir";
+        name = "mkdir ";
         break;
     case FTP_TYPES_LS:
-        name = "ls";
+        name = "ls ";
         break;
     case FTP_TYPES_CD:
         memcpy(cmd, msg->data, size);
         chdir(cmd);
-        name = "pwd";
+        name = "pwd ";
         size = 0;
+        break;
+    case FTP_TYPES_GET:
+    case FTP_TYPES_PUT:
+        should_pipe = false;
         break;
     default:
         return NULL;
@@ -170,7 +174,7 @@ ftp_message_unpack(struct ftp_message *msg)
     struct _ftp_file_wrapped *file = malloc(sizeof *file);
     if (!file) return NULL;
 
-    snprintf(cmd, sizeof(cmd), "%s %.*s", name, size, msg->data);
+    snprintf(cmd, sizeof(cmd), "%s%.*s", name, size, msg->data);
     *file = (struct _ftp_file_wrapped){
         .stream = should_pipe ? popen(cmd, "r") : fopen(cmd, "r"),
         .is_pipe = should_pipe,
@@ -182,32 +186,32 @@ ftp_message_unpack(struct ftp_message *msg)
 int
 ftp_message_send(int sockfd, struct ftp_message *msg)
 {
+    int retval;
     /* updates sequence */
     msg->seq = (msg->seq + 1) % 0xF;
-    printf("UPDATE: seq %u\n", msg->seq);
-    return send(sockfd, msg, sizeof *msg, 0);
+    if ((retval = send(sockfd, msg, sizeof *msg, 0)) >= 0)
+        printf("SEND (%u bytes):\t", msg->size);
+    else
+        perror("send()");
+    return retval;
 }
 
 int
 ftp_message_recv(int sockfd, struct ftp_message *msg)
 {
-    struct ftp_message recv_msg;
-    int retval;
-
-    memset(&recv_msg, 0, sizeof(recv_msg));
-    retval = recv(sockfd, &recv_msg, sizeof(recv_msg), 0);
+    const unsigned next_seq = (msg->seq + 1) % 0xF;
+    struct ftp_message recv_msg = { 0 };
+    int retval = recv(sockfd, &recv_msg, sizeof(recv_msg), 0);
 
     /* ignores garbage */
     if (recv_msg.header != FTP_MESSAGE_HEADER_VALUE) return 0;
     /* ignores message not belonging to the next in sequence */
-    const unsigned next_seq = (msg->seq + 1) % 0xF;
-    if (recv_msg.seq != next_seq) {
-        printf("IGNORED: recv %u, expected %u\n", recv_msg.seq, next_seq);
-        return 0;
-    }
+    if (recv_msg.seq != next_seq) return 0;
 
-    memcpy(msg, &recv_msg, sizeof *msg);
+    *msg = recv_msg;
+    printf("RECV (%d bytes):\t", retval);
 
+    if (retval < 0) perror("recv()");
     return retval;
 }
 

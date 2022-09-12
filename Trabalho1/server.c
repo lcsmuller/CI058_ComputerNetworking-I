@@ -15,10 +15,10 @@
 int
 main(void)
 {
+    char buf[FTP_MESSAGE_DATA_SIZE - 1];
     int sockfd = ftp_raw_socket("lo");
     struct ftp_message msg;
-    struct ftp_file *file;
-    int retval;
+    struct ftp_file *fout;
 
     if (sockfd < 0) return EXIT_FAILURE;
 
@@ -26,35 +26,43 @@ main(void)
     puts("Starting server's session ...");
     while (1) {
         /* awaits client payload */
-        if ((retval = ftp_message_recv(sockfd, &msg)) < 0) {
-            perror("ftp_message_recv()");
+        if (ftp_message_recv(sockfd, &msg) <= 0) {
             continue;
         }
-        else if (retval > 0) {
-            printf("RECV (%d bytes):\t", retval);
-            ftp_message_print(&msg, stdout);
 
-            if ((file = ftp_message_unpack(&msg))) {
-                char buf[sizeof(msg.data)];
-                bool end = false;
-                size_t len;
+        /* interpret client payload */
+        ftp_message_print(&msg, stdout);
 
-                while (1) {
-                    len = fread(buf, sizeof(char), sizeof(buf), file->stream);
-                    if (!len) break;
-
-                    ftp_message_update(&msg, FTP_TYPES_DATA, buf, len);
-                    if (ftp_message_send(sockfd, &msg) < 0) {
-                        perror("ftp_message_send()");
-                        end = true;
-                        break;
-                    }
-                    printf("SEND (%u bytes):\t", msg.size);
-                    ftp_message_print(&msg, stdout);
-                }
-                ftp_file_close(file);
-                if (end) break;
+        /* perform received message action, and send back the response */
+        if ((fout = ftp_message_unpack(&msg))) {
+            switch (msg.type) {
+            case FTP_TYPES_CD:
+            case FTP_TYPES_LS:
+            case FTP_TYPES_MKDIR:
+                ftp_message_update(&msg, FTP_TYPES_OK, NULL, 0);
+                ftp_message_send(sockfd, &msg);
+                break;
+            default:
+                break;
             }
+
+            bool end = false;
+            for (size_t len; (len = fread(buf, 1, sizeof(buf), fout->stream));)
+            {
+
+                ftp_message_update(&msg, FTP_TYPES_DATA, buf, len);
+                if (ftp_message_send(sockfd, &msg) < 0) {
+                    end = true;
+                    break;
+                }
+                ftp_message_print(&msg, stdout);
+            }
+            ftp_message_update(&msg, FTP_TYPES_END, NULL, 0);
+            if (ftp_message_send(sockfd, &msg) < 0) {
+                end = true;
+            }
+            ftp_file_close(fout);
+            if (end) break;
         }
     }
     puts("Finishing server's session ...");

@@ -3,8 +3,12 @@
 
 /** marcador de ínicio do cabeçalho (01111110 em binário) */
 #define FTP_MESSAGE_HEADER_VALUE 0x7E
-/** tamanho máximo do campo dados (mais paridade) em bytes */
-#define FTP_MESSAGE_DATA_SIZE (64 + 1)
+/** maximum message data size */
+#define FTP_MESSAGE_DATA_SIZE 64
+/** maximum message parity size */
+#define FTP_MESSAGE_PARITY_SIZE 1
+/** maximum message (data + parity) size */
+#define FTP_MESSAGE_SIZE (FTP_MESSAGE_DATA_SIZE + FTP_MESSAGE_PARITY_SIZE)
 
 /**
  * possíveis tipos de mensagens a serem enviados
@@ -46,13 +50,13 @@ struct ftp_message {
     /** marcador de início */
     unsigned header : 8;
     /** tamanho do campo data */
-    unsigned size : 6;
+    size_t size : 6;
     /** contador de sequencia da mensagem */
     unsigned seq : 4;
     /** tipo da mensagem */
     enum ftp_message_types type : 6;
     /** dados, com o último byte reservado para paridade */
-    unsigned char data[FTP_MESSAGE_DATA_SIZE];
+    unsigned char data[FTP_MESSAGE_SIZE];
 };
 
 /**
@@ -83,8 +87,8 @@ void ftp_message_print(const struct ftp_message *msg, FILE *out);
  */
 _Bool ftp_message_update(struct ftp_message *msg,
                          enum ftp_message_types type,
-                         const char data[],
-                         unsigned size);
+                         const char data[FTP_MESSAGE_DATA_SIZE - 1],
+                         size_t size);
 
 /**
  * @brief Decodifica e executa instruções contidas na mensagem FTP
