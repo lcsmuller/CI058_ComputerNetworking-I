@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 #include "ftp.h"
 
@@ -74,72 +75,85 @@ command_args_fetch(FILE *stream)
 }
 
 int
-main(void)
+main(const int argc, const char *argv[])
 {
-    char buf[FTP_MESSAGE_DATA_SIZE - 1];
-    int sockfd = ftp_raw_socket("lo");
+    unsigned char buf[FTP_MESSAGE_DATA_SIZE - 1];
+    struct timeval timeout = { .tv_sec = 2 };
+    struct ftp_file *fout = NULL;
     struct command_args args;
     struct ftp_message msg;
-    struct ftp_file *fout;
+    int sockfd;
+    int retval;
 
+    if (argc <= 1) {
+        fprintf(stderr, "Usage: ./%s < %s\n", argv[0], argv[1]);
+        return EXIT_FAILURE;
+    }
+
+    sockfd = ftp_raw_socket(argv[1]);
     if (sockfd < 0) return EXIT_FAILURE;
 
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout))
+        < 0) {
+        perror("setsockopt()");
+        close(sockfd);
+        return EXIT_FAILURE;
+    }
+
     ftp_message_init(&msg);
-    puts("Starting client's session ...");
+    fputs("Starting client's session ...\n", stderr);
     while (1) {
-        printf(">> ");
+        fputs(">>> ", stderr);
         args = command_args_fetch(stdin);
+        ftp_message_update(&msg, args.type, (unsigned char *)args.contents,
+                           args.len);
 
-        ftp_message_update(&msg, args.type, args.contents, args.len);
-        if (!args.expect) { /* PERFORM COMMAND LOCALLY */
-            if ((fout = ftp_message_unpack(&msg))) {
-                for (size_t len;
-                     (len = fread(buf, 1, sizeof(buf), fout->stream));) {
+        if (fout) {
+            ftp_file_close(fout);
+            fout = NULL;
+        }
+        fout = ftp_message_unpack(&msg);
 
+        /* PERFORM COMMAND LOCALLY */
+        if (!args.expect) {
+            if (fout) {
+                size_t len;
+                while ((len = fread(buf, 1, sizeof(buf), fout->stream))) {
                     ftp_message_update(&msg, msg.type, buf, len);
                     ftp_message_print(&msg, stdout);
                 }
-                ftp_file_close(fout);
             }
             continue;
         }
 
         /* PERFORM COMMAND REMOTELY */
+        ftp_message_send(sockfd, &msg);
+        ftp_message_print(&msg, stdout);
 
-        if (args.type == FTP_TYPES_PUT) { /* send packets to server */
-            if (!(fout = ftp_message_unpack(&msg))) continue;
-
-            while (1) {
-                for (size_t len;
-                     (len = fread(buf, 1, sizeof(buf), fout->stream));) {
-
-                    ftp_message_update(&msg, FTP_TYPES_DATA, buf, len);
-                    if (ftp_message_send(sockfd, &msg) < 0) {
-                        break;
-                    }
-                    ftp_message_print(&msg, stdout);
-                }
-                ftp_message_update(&msg, FTP_TYPES_END, NULL, 0);
-                ftp_message_send(sockfd, &msg);
-            }
-            ftp_file_close(fout);
+        while ((retval = ftp_message_recv(sockfd, &msg)) == 0)
+            continue;
+        if (retval == -2) {
+            ftp_message_init(&msg);
+            continue;
         }
-        else { /* receive packets from server */
-            if (ftp_message_send(sockfd, &msg) < 0) {
+        ftp_message_print(&msg, stdout);
+
+        if (msg.type != FTP_TYPES_OK) {
+            fputs("Error: Expect OK!\n", stderr);
+            continue;
+        }
+
+        if (args.type != FTP_TYPES_PUT) /* receive packets from server */
+            ftp_message_recv_batch(sockfd, &msg);
+        else { /* send packets to server */
+            if (!fout) {
+                fputs("Error: Couldn't unpack message (Put)\n", stderr);
                 continue;
             }
-            ftp_message_print(&msg, stdout);
-
-            /* awaits server's response */
-            for (int retval; msg.type != args.expect;) {
-                if ((retval = ftp_message_recv(sockfd, &msg)) < 0) {
-                    break;
-                }
-                if (retval > 0) ftp_message_print(&msg, stdout);
-            }
+            ftp_message_send_batch(sockfd, &msg, fout);
         }
     }
-    puts("Finishing client's session ...");
+    fputs("Finishing client's session ...\n", stderr);
 
     close(sockfd);
 

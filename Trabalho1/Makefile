@@ -8,7 +8,7 @@ EXES = server client
 OBJS = $(SRC_DIR)/ftp_message.o    \
        $(SRC_DIR)/ftp_raw_socket.o
 
-CFLAGS += -Wall -Wextra -Werror -Wpedantic -I$(INCLUDE_DIR)
+CFLAGS += -Wall -Wextra -Werror -Wpedantic -g -I$(INCLUDE_DIR)
 
 SERVER_PORT = 5010
 

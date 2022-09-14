@@ -10,23 +10,30 @@
 /** maximum message (data + parity) size */
 #define FTP_MESSAGE_SIZE (FTP_MESSAGE_DATA_SIZE + FTP_MESSAGE_PARITY_SIZE)
 
+#define FTP_ERROR_SEQ_FILLER 255
+
+#define FTP_ERROR_SEQ_1 129
+#define FTP_ERROR_SEQ_2 136
+#define FTP_ERROR_SEQ_3 137
+
 /**
  * possíveis tipos de mensagens a serem enviados
  * @note valores malucos escolhidos em aula pela classe
  */
 enum ftp_message_types {
-    FTP_TYPES_OK = 0x1,
+    FTP_TYPES_OK = 0x1, /**< command has been received */
     FTP_TYPES_NACK = 0x2,
     FTP_TYPES_ACK = 0x3,
-    FTP_TYPES_ERROR = 0x11,
-    FTP_TYPES_END = 0x2E, /**< finaliza transferência */
-    FTP_TYPES_LS = 0x3F, /**< envia `ls` */
-    FTP_TYPES_CD = 0x6, /**< envia `cd` */
-    FTP_TYPES_GET = 0x9, /**< envia `get` */
-    FTP_TYPES_PUT = 0xA, /**< envia `put` */
-    FTP_TYPES_MKDIR = 0x10, /**< envia `mkdir` */
-    FTP_TYPES_FDESC = 0x18, /**< descritor de arquivos */
-    FTP_TYPES_DATA = 0x20,
+    FTP_TYPES_ERROR = 0x11, /**< error, should abort transfer */
+    FTP_TYPES_END = 0x2E, /**< ends data transfer */
+    FTP_TYPES_LS = 0x3F, /**< perform `ls` */
+    FTP_TYPES_CD = 0x6, /**< perform `cd` */
+    FTP_TYPES_GET = 0x9, /**< perform `get` */
+    FTP_TYPES_PUT = 0xA, /**< perform `put` */
+    FTP_TYPES_MKDIR = 0x10, /**< perform `mkdir` */
+    FTP_TYPES_FDESC = 0x18, /**< file descriptor */
+    FTP_TYPES_DATA = 0x20, /**< chunk of data */
+    FTP_TYPES_DATA_MASKED = 0x21, /**< masked chunk of data */
 };
 
 /**
@@ -87,7 +94,7 @@ void ftp_message_print(const struct ftp_message *msg, FILE *out);
  */
 _Bool ftp_message_update(struct ftp_message *msg,
                          enum ftp_message_types type,
-                         const char data[FTP_MESSAGE_DATA_SIZE - 1],
+                         const unsigned char data[FTP_MESSAGE_DATA_SIZE - 1],
                          size_t size);
 
 /**
@@ -125,6 +132,12 @@ struct ftp_file {
     /** output stream */
     FILE *stream;
 };
+
+void ftp_message_send_batch(int sockfd,
+                            struct ftp_message *msg,
+                            struct ftp_file *fout);
+
+void ftp_message_recv_batch(int sockfd, struct ftp_message *msg);
 
 /**
  * @brief Closes an open @ref ftp_file
